@@ -48,7 +48,6 @@ machen weiter. Scheitert einer, brechen sie mit Fehler ab.
 | `targets/additionaltargets.sh` | post-update | zusätzliche Targets und Geräte aus OpenWrt, die Gluon 2023.2 nicht baut | |
 | `devices/add-cellular.sh` | post-update | Mobilfunkgerät ZTE MF286R | |
 | `network/interfaces-patch.sh` | post-update | primäre MACs und Schnittstellenzuordnung für die zusätzlichen Geräte | |
-| `kernel/revert-mips-tlb-uniquify.sh` | post-update | MIPS: `r4k_tlb_uniquify()` zurücknehmen (Kaltstart-Hänger 74Kc) | entfällt ab Kernel 5.15.209, Gluon v2023.2.x seit 22.09.2026 |
 | `kernel/rtl8221b-skip-mmd30.sh` | post-update | beim PHY-Scan MMD 30 des RTL8221B nicht lesen; sonst ist der 2,5G-Port tot, wenn beim Booten ein Kabel steckt (Cudy TR3000/WR3000H) | Backport OpenWrt 88dcd8c |
 | `kernel/mt7530-phy-disable-eee.sh` | post-update | EEE am MT7530-PHY aus (Switch des MT7621): sonst Link-Schleifen an 2-paarigen Kabeln und instabile 100-Mbit-Links | Nachbau OpenWrt PR #25058 für 5.15 |
 | `kernel/ag71xx-rx-ring-no-bug.sh` | post-update | ag71xx: kein `BUG()` bei leerem RX-Ring (RAM-Druck) | |
@@ -59,7 +58,7 @@ Nicht angewendet:
 | --- | --- |
 | `parked/squashfs-blocksize-per-device.sh` | squashfs-Blockgröße je Gerät (vorbereitet, nicht aktiv) |
 | `parked/cudy-rtl8221b-irq-parent.sh` | TR3000/M3000: `interrupt-parent = <&pio>` für den 2,5G-PHY (Backport OpenWrt 82b69df); geparkt, siehe Patchkopf |
-| `experiments/mips-tlb-arm-e/` | Backport der TLB-Korrektur aus 5.15.209 als Alternative zu `revert-mips-tlb-uniquify.sh`; Messergebnis in der README dort |
+| `experiments/mips-tlb-arm-e/` | Backport der TLB-Korrektur aus 5.15.209 für Kernel vor 5.15.209, als Alternative zum früheren `kernel/revert-mips-tlb-uniquify.sh`; Messergebnis in der README dort. Überholt, seit Gluon v2023.2.x 5.15.211 mitbringt |
 
 ## Abhängigkeiten
 
@@ -67,9 +66,15 @@ Nicht angewendet:
   (derselbe Block in `targets/mediatek-filogic`).
 * `devices/add-totolink-x5000r.sh` und `targets/additionaltargets.sh` fassen
   beide `targets/ramips-mt7621` an; `apply.sh` hält die Reihenfolge ein.
-* `experiments/mips-tlb-arm-e` und `kernel/revert-mips-tlb-uniquify.sh`
-  schließen sich aus.
 * Die übrigen Skripte sind voneinander unabhängig.
+
+## Entfernt
+
+* `kernel/revert-mips-tlb-uniquify.sh` mit `999-mips-tlb-r4k-no-uniquify.patch`
+  (27.09.2026): nahm den Aufruf von `r4k_tlb_uniquify()` heraus
+  (Kaltstart-Hänger MIPS 74Kc). Seit Kernel 5.15.209 ist der Fehler upstream
+  behoben, Gluon v2023.2.x bringt seit 22.09.2026 5.15.211 mit; dort passt der
+  Patch nicht mehr. Letzter Stand: `845a95f`.
 
 ## Herkunft und Lizenz
 

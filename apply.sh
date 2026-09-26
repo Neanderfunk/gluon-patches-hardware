@@ -40,7 +40,6 @@ POST_UPDATE=(
   targets/additionaltargets.sh                # zusaetzliche Targets und Geraete aus OpenWrt
   devices/add-cellular.sh                     # ZTE MF286R
   network/interfaces-patch.sh                 # primaere MACs und Schnittstellen der zusaetzlichen Geraete
-  kernel/revert-mips-tlb-uniquify.sh          # MIPS 74Kc Kaltstart-Haenger (entfaellt ab Kernel 5.15.209)
   kernel/rtl8221b-skip-mmd30.sh               # RTL8221B: MMD 30 beim PHY-Scan auslassen
   kernel/mt7530-phy-disable-eee.sh            # MT7530-PHY: EEE aus
   kernel/ag71xx-rx-ring-no-bug.sh             # ag71xx: kein BUG() bei leerem RX-Ring
