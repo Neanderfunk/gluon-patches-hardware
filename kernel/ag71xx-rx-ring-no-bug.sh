@@ -17,7 +17,7 @@
 . "$(dirname "${BASH_SOURCE[0]}")/../lib-patch.sh"
 
 KPATCH="950-ag71xx-rx-ring-exhausted-no-bug.patch"
-TARGET="target/linux/ath79/patches-5.15/$KPATCH"
+TARGET="target/linux/ath79/patches-6.6/$KPATCH"
 
 echo "ag71xx: kein BUG() bei leerem RX-Ring"
 

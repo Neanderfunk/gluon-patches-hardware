@@ -23,20 +23,16 @@ set -o errexit -o nounset -o pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-PRE_UPDATE=(
-  devices/add-lantiq-xrx200-devices.sh        # AVM FRITZ!Box 7430 und 3390
-)
+PRE_UPDATE=()
 
-# Reihenfolge wie im Neanderfunk-Bau. Abhaengig sind nur die Geraete in
-# mediatek-filogic (add-dlink-m30 setzt auf add-mercusys-mr90x auf).
+# Reihenfolge wie im Neanderfunk-Bau. Die Skripte sind voneinander
+# unabhaengig.
 POST_UPDATE=(
-  device-fixes/mi4apatch.sh                   # Mi Router 4A Gigabit sysupgrade-faehig
-  devices/add-totolink-x5000r.sh              # Totolink X5000R
-  devices/add-mercusys-mr90x.sh               # MERCUSYS MR90X
-  devices/add-dlink-m30.sh                    # D-Link AQUILA PRO AI M30 A1 (nach MR90X)
-  device-fixes/fix-xiaomi-ax6s-bootflags.sh   # Xiaomi Redmi AX6S: Boot-Flags bestaetigen
   devices/add-nanopi-r2c.sh                   # FriendlyElec NanoPi R2C
-  devices/add-cudy-3000.sh                    # Cudy-3000-Serie (mediatek-filogic)
+  devices/add-lantiq-xrx200-devices.sh        # AVM FRITZ!Box 3390
+  devices/add-cudy-3000.sh                    # Cudy AP3000 v1, TR3000 256MB v1
+  devices/remove-dlink-m30-recovery.sh        # D-Link M30: kein recovery-Image (Gluon #3816)
+  device-fixes/fix-xiaomi-ax6s-bootflags.sh   # Xiaomi Redmi AX6S: Boot-Flags bestaetigen
   targets/additionaltargets.sh                # zusaetzliche Targets und Geraete aus OpenWrt
   devices/add-cellular.sh                     # ZTE MF286R
   network/interfaces-patch.sh                 # primaere MACs und Schnittstellen der zusaetzlichen Geraete

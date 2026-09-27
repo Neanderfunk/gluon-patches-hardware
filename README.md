@@ -1,6 +1,6 @@
 # Gluon-Patches: Hardware
 
-*Patches for Gluon v2023.2.x / OpenWrt 23.05 that add devices and targets or
+*Patches for Gluon v2025.1.x / OpenWrt 24.10 that add devices and targets or
 fix single devices and their drivers. Used by Freifunk im Neanderland
 (Neanderfunk). Each script can be used on its own; `apply.sh` applies all of
 them in order.*
@@ -9,7 +9,8 @@ Zusätzliche Geräte und Targets für Gluon, Korrekturen an einzelnen Geräten
 und an Treibern bestimmter Chips. Nichts davon hängt an den Paketen oder der
 Site-Konfiguration von Neanderfunk.
 
-Die Zweige folgen Gluon: `v2023.2.x` passt zu Gluon v2023.2.x (OpenWrt 23.05,
+Die Zweige folgen Gluon: dieser Zweig `v2025.1.x` passt zu Gluon v2025.1.x
+(OpenWrt 24.10, Kernel 6.6); `v2023.2.x` zu Gluon v2023.2.x (OpenWrt 23.05,
 Kernel 5.15).
 
 ## Anwenden
@@ -37,19 +38,16 @@ machen weiter. Scheitert einer, brechen sie mit Fehler ab.
 
 | Skript | Phase | Zweck | Herkunft, Ende |
 | --- | --- | --- | --- |
-| `devices/add-lantiq-xrx200-devices.sh` | pre-update | AVM FRITZ!Box 7430 und 3390, mit OpenWrt-Patch (ath9k-Kalibrierdaten 7430) | |
-| `device-fixes/mi4apatch.sh` | post-update | Mi Router 4A Gigabit sysupgrade-fähig | |
-| `devices/add-totolink-x5000r.sh` | post-update | Totolink X5000R | |
-| `devices/add-mercusys-mr90x.sh` | post-update | MERCUSYS MR90X | |
-| `devices/add-dlink-m30.sh` | post-update | D-Link AQUILA PRO AI M30 A1, ohne Recovery-Image | Gluon 2025.1 kennt das Gerät |
-| `device-fixes/fix-xiaomi-ax6s-bootflags.sh` | post-update | Xiaomi Redmi AX6S: Boot-Flags bestätigen, kein Rückfall auf Stock | |
 | `devices/add-nanopi-r2c.sh` | post-update | FriendlyElec NanoPi R2C | |
-| `devices/add-cudy-3000.sh` | post-update | Cudy-3000-Serie im Target mediatek-filogic | |
-| `targets/additionaltargets.sh` | post-update | zusätzliche Targets und Geräte aus OpenWrt, die Gluon 2023.2 nicht baut | |
+| `devices/add-lantiq-xrx200-devices.sh` | post-update | AVM FRITZ!Box 3390 | |
+| `devices/add-cudy-3000.sh` | post-update | Cudy AP3000 v1 und TR3000 256MB v1 (die übrigen kennt Gluon 2025.1) | |
+| `devices/remove-dlink-m30-recovery.sh` | post-update | D-Link M30: kein recovery-Image, es installiert nicht | Gluon #3816 |
+| `device-fixes/fix-xiaomi-ax6s-bootflags.sh` | post-update | Xiaomi Redmi AX6S: Boot-Flags bestätigen, kein Rückfall auf Stock | |
+| `targets/additionaltargets.sh` | post-update | zusätzliche Targets und Geräte aus OpenWrt, die Gluon 2025.1 nicht baut; ipq807x heißt jetzt `qualcommax-ipq807x` | |
 | `devices/add-cellular.sh` | post-update | Mobilfunkgerät ZTE MF286R | |
 | `network/interfaces-patch.sh` | post-update | primäre MACs und Schnittstellenzuordnung für die zusätzlichen Geräte | |
 | `kernel/rtl8221b-skip-mmd30.sh` | post-update | beim PHY-Scan MMD 30 des RTL8221B nicht lesen; sonst ist der 2,5G-Port tot, wenn beim Booten ein Kabel steckt (Cudy TR3000/WR3000H) | Backport OpenWrt 88dcd8c |
-| `kernel/mt7530-phy-disable-eee.sh` | post-update | EEE am MT7530-PHY aus (Switch des MT7621): sonst Link-Schleifen an 2-paarigen Kabeln und instabile 100-Mbit-Links | Nachbau OpenWrt PR #25058 für 5.15 |
+| `kernel/mt7530-phy-disable-eee.sh` | post-update | EEE am MT7530-PHY aus (Switch des MT7621); unter 6.6 als Target-Patch von ramips, weil mediatek die Datei selbst umbaut | Nachbau OpenWrt PR #25058 |
 | `kernel/ag71xx-rx-ring-no-bug.sh` | post-update | ag71xx: kein `BUG()` bei leerem RX-Ring (RAM-Druck) | |
 
 Nicht angewendet:
@@ -58,17 +56,33 @@ Nicht angewendet:
 | --- | --- |
 | `parked/squashfs-blocksize-per-device.sh` | squashfs-Blockgröße je Gerät (vorbereitet, nicht aktiv) |
 | `parked/cudy-rtl8221b-irq-parent.sh` | TR3000/M3000: `interrupt-parent = <&pio>` für den 2,5G-PHY (Backport OpenWrt 82b69df); geparkt, siehe Patchkopf |
-| `experiments/mips-tlb-arm-e/` | Backport der TLB-Korrektur aus 5.15.209 für Kernel vor 5.15.209, als Alternative zum früheren `kernel/revert-mips-tlb-uniquify.sh`; Messergebnis in der README dort. Überholt, seit Gluon v2023.2.x 5.15.211 mitbringt |
 
 ## Abhängigkeiten
 
-* `devices/add-dlink-m30.sh` setzt auf `devices/add-mercusys-mr90x.sh` auf
-  (derselbe Block in `targets/mediatek-filogic`).
-* `devices/add-totolink-x5000r.sh` und `targets/additionaltargets.sh` fassen
-  beide `targets/ramips-mt7621` an; `apply.sh` hält die Reihenfolge ein.
-* Die übrigen Skripte sind voneinander unabhängig.
+* Die Skripte sind voneinander unabhängig. `targets/additionaltargets.sh`
+  wendet einige Target-Patches zweimal an und meldet beim zweiten Mal
+  „bereits angewendet“, das ist gewollt.
 
 ## Entfernt
+
+Gegenüber `v2023.2.x` (27.09.2026):
+
+* `device-fixes/mi4apatch.sh` mit `mi4ag-migration.patch` (Compat-Level des
+  Mi Router 4A Gigabit): unter 2025.1 nicht mehr übernommen.
+* `devices/add-totolink-x5000r.sh`, `devices/add-mercusys-mr90x.sh`,
+  `devices/add-dlink-m30.sh`: Gluon 2025.1 kennt die Geräte selbst; vom M30
+  bleibt nur das Entfernen des recovery-Images.
+* `486-02-…F50L1G41LC.patch` (SPI-NAND-ID): in OpenWrt 24.10 als Backport
+  422-v6.19 enthalten.
+* `412-…zbit-zb25vq128.patch` (SPI-NOR-ID des Zbit ZB25VQ128, Totolink X5000R
+  ab 2022): nie im Kernel. Unter 6.6 sollte der generische SFDP-Rückfall
+  (`spi-nor-generic`) den Chip erkennen; **am Gerät noch nicht geprüft**, beim
+  ersten Testbau einen X5000R mit Zbit-Chip gegenprüfen.
+* Cudy- und ipq807x-OpenWrt-Patches, `targets-mk.patch`: in OpenWrt 24.10
+  bzw. Gluon 2025.1 enthalten.
+* `experiments/mips-tlb-arm-e`: Kernel 6.6 bringt die Korrektur mit.
+
+Aus `v2023.2.x`:
 
 * `kernel/revert-mips-tlb-uniquify.sh` mit `999-mips-tlb-r4k-no-uniquify.patch`
   (27.09.2026): nahm den Aufruf von `r4k_tlb_uniquify()` heraus

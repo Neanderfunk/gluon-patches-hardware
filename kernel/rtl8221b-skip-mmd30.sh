@@ -5,7 +5,7 @@
 # gesteckt), bis zum Hardware-Reset. Backport aus OpenWrt 88dcd8c303b6 nach
 # 5.15; Einzelheiten im Patchkopf.
 #
-# Legt den Patch nur ab: OpenWrt wendet target/linux/generic/hack-5.15/ beim
+# Legt den Patch nur ab: OpenWrt wendet target/linux/generic/hack-6.6/ beim
 # Kernel-Bau selbst an.
 #
 # Wird aus dem Gluon-Verzeichnis heraus aufgerufen, so wie apply.sh es tut:
@@ -20,4 +20,4 @@ echo "Kernel: MMD 30 des RTL8221B beim PHY-Scan auslassen"
 enter_dir openwrt
 
 copy_into_tree "$PATCH_DIR/$MMD30_PATCH" \
-  "target/linux/generic/hack-5.15/$MMD30_PATCH"
+  "target/linux/generic/hack-6.6/$MMD30_PATCH"
