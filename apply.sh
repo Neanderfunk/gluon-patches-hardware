@@ -28,6 +28,7 @@ PRE_UPDATE=()
 # Reihenfolge wie im Neanderfunk-Bau. Die Skripte sind voneinander
 # unabhaengig.
 POST_UPDATE=(
+  devices/zbit-zb25vq128.sh                   # Zbit-Flash des Totolink X5000R (Kernel-Patch)
   devices/add-nanopi-r2c.sh                   # FriendlyElec NanoPi R2C
   devices/add-lantiq-xrx200-devices.sh        # AVM FRITZ!Box 3390
   devices/add-cudy-3000.sh                    # Cudy AP3000 v1, TR3000 256MB v1

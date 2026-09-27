@@ -38,6 +38,7 @@ machen weiter. Scheitert einer, brechen sie mit Fehler ab.
 
 | Skript | Phase | Zweck | Herkunft, Ende |
 | --- | --- | --- | --- |
+| `devices/zbit-zb25vq128.sh` | post-update | Kernel-Patch für den Zbit-ZB25VQ128-Flash (Totolink X5000R ab 2022); das Gerät kennt Gluon 2025.1, die Flash-ID der Kernel nicht | Daniel Palmer 2021, nie gemerged; auf 6.6 portiert, Kompilieren und Gerät ungetestet |
 | `devices/add-nanopi-r2c.sh` | post-update | FriendlyElec NanoPi R2C | |
 | `devices/add-lantiq-xrx200-devices.sh` | post-update | AVM FRITZ!Box 3390 | |
 | `devices/add-cudy-3000.sh` | post-update | Cudy AP3000 v1 und TR3000 256MB v1 (die übrigen kennt Gluon 2025.1) | |
@@ -74,10 +75,6 @@ Gegenüber `v2023.2.x` (27.09.2026):
   bleibt nur das Entfernen des recovery-Images.
 * `486-02-…F50L1G41LC.patch` (SPI-NAND-ID): in OpenWrt 24.10 als Backport
   422-v6.19 enthalten.
-* `412-…zbit-zb25vq128.patch` (SPI-NOR-ID des Zbit ZB25VQ128, Totolink X5000R
-  ab 2022): nie im Kernel. Unter 6.6 sollte der generische SFDP-Rückfall
-  (`spi-nor-generic`) den Chip erkennen; **am Gerät noch nicht geprüft**, beim
-  ersten Testbau einen X5000R mit Zbit-Chip gegenprüfen.
 * Cudy- und ipq807x-OpenWrt-Patches, `targets-mk.patch`: in OpenWrt 24.10
   bzw. Gluon 2025.1 enthalten.
 * `experiments/mips-tlb-arm-e`: Kernel 6.6 bringt die Korrektur mit.
