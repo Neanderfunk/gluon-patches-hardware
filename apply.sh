@@ -33,7 +33,7 @@ POST_UPDATE=(
   devices/add-lantiq-xrx200-devices.sh        # AVM FRITZ!Box 3390
   devices/add-cudy-3000.sh                    # Cudy AP3000 v1, TR3000 256MB v1
   devices/remove-dlink-m30-recovery.sh        # D-Link M30: kein recovery-Image (Gluon #3816)
-  devices/dlink-m60-odm-mac.sh                # D-Link M60: MAC aus Odm per Layout-Parser
+  devices/dlink-aquila-odm-mac.sh             # D-Link M30/M60: MAC aus Odm per Layout-Parser
   device-fixes/fix-xiaomi-ax6s-bootflags.sh   # Xiaomi Redmi AX6S: Boot-Flags bestaetigen
   targets/additionaltargets.sh                # zusaetzliche Targets und Geraete aus OpenWrt
   devices/add-cellular.sh                     # ZTE MF286R
