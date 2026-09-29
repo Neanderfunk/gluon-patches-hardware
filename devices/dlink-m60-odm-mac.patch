@@ -1,0 +1,37 @@
+D-Link AQUILA PRO AI M60 A1: MAC aus Odm per Layout-Parser statt fester Zelle
+
+Device Tree: nvmem-layout "dlink,odm-layout" statt fixed-layout mit
+macaddr@81 (reg <0x81 0x6>). Kernel-Konfiguration filogic: den Parser
+(CONFIG_NVMEM_LAYOUT_DLINK_ODM) fest einbauen. Der Parser selbst kommt
+als Kernel-Patch 451-nvmem-add-layout-for-D-Link-Odm.patch.
+
+diff -ru a/target/linux/mediatek/dts/mt7986a-dlink-aquila-pro-ai-m60-a1.dts b/target/linux/mediatek/dts/mt7986a-dlink-aquila-pro-ai-m60-a1.dts
+--- a/target/linux/mediatek/dts/mt7986a-dlink-aquila-pro-ai-m60-a1.dts
++++ b/target/linux/mediatek/dts/mt7986a-dlink-aquila-pro-ai-m60-a1.dts
+@@ -276,13 +276,9 @@
+ 				read-only;
+ 
+ 				nvmem-layout {
+-					compatible = "fixed-layout";
+-					#address-cells = <1>;
+-					#size-cells = <1>;
++					compatible = "dlink,odm-layout";
+ 
+-					macaddr_odm: macaddr@81 {
+-						compatible = "mac-base";
+-						reg = <0x81 0x6>;
++					macaddr_odm: macaddr {
+ 						#nvmem-cell-cells = <1>;
+ 					};
+ 				};
+diff -ru a/target/linux/mediatek/filogic/config-6.6 b/target/linux/mediatek/filogic/config-6.6
+--- a/target/linux/mediatek/filogic/config-6.6
++++ b/target/linux/mediatek/filogic/config-6.6
+@@ -316,6 +316,7 @@
+ CONFIG_NVMEM_BLOCK=y
+ CONFIG_NVMEM_LAYOUTS=y
+ CONFIG_NVMEM_LAYOUT_ADTRAN=y
++CONFIG_NVMEM_LAYOUT_DLINK_ODM=y
+ CONFIG_NVMEM_MTK_EFUSE=y
+ CONFIG_NVMEM_SYSFS=y
+ CONFIG_OF=y

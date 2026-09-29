@@ -1,0 +1,190 @@
+From: Freifunk im Neanderland <projekt@neanderfunk.de>
+Date: Tue, 30 Sep 2026 00:00:00 +0200
+Subject: [PATCH] nvmem: add layout for D-Link Odm factory data
+
+D-Link AQUILA PRO AI devices (M30, M60) keep their factory data in the
+"Odm" partition: from offset 0x20 a list of variable-length records
+<id> <attr[2]> 0x80 <le16 len> <data>. The base MAC address is the record
+with id 0x30 and length 6.
+
+OpenWrt reads it with a fixed-layout cell at offset 0x81. The offset is
+not stable: on a M60 A1 checked on 2026-09-29 the MAC record data starts
+at 0x83 (the records in front differ in length), so the fixed cell reads
+the two length bytes plus four MAC bytes (06:00:dc:ea:e7:ae instead of
+dc:ea:e7:ae:b4:82). Node ID and addresses then do not match the label
+and are not unique.
+
+This layout walks the records and exposes the MAC as cell "macaddr" with
+one cell argument that is added to the base address, like "mac-base".
+
+---
+diff -ruN a/drivers/nvmem/layouts/Kconfig b/drivers/nvmem/layouts/Kconfig
+--- a/drivers/nvmem/layouts/Kconfig
++++ b/drivers/nvmem/layouts/Kconfig
+@@ -17,6 +17,14 @@
+ 
+ 	  If unsure, say N.
+ 
++config NVMEM_LAYOUT_DLINK_ODM
++	tristate "D-Link Odm layout support"
++	help
++	  Say Y here if you want to support the Odm factory data partition
++	  of D-Link AQUILA PRO AI devices. It provides the base MAC address.
++
++	  If unsure, say N.
++
+ config NVMEM_LAYOUT_SL28_VPD
+ 	tristate "Kontron sl28 VPD layout support"
+ 	select CRC8
+diff -ruN a/drivers/nvmem/layouts/Makefile b/drivers/nvmem/layouts/Makefile
+--- a/drivers/nvmem/layouts/Makefile
++++ b/drivers/nvmem/layouts/Makefile
+@@ -7,3 +7,4 @@
+ obj-$(CONFIG_NVMEM_LAYOUT_ONIE_TLV) += onie-tlv.o
+ obj-$(CONFIG_NVMEM_LAYOUT_U_BOOT_ENV) += u-boot-env.o
+ obj-$(CONFIG_NVMEM_LAYOUT_ADTRAN) += adtran.o
++obj-$(CONFIG_NVMEM_LAYOUT_DLINK_ODM) += dlink-odm.o
+diff -ruN a/drivers/nvmem/layouts/dlink-odm.c b/drivers/nvmem/layouts/dlink-odm.c
+--- a/drivers/nvmem/layouts/dlink-odm.c
++++ b/drivers/nvmem/layouts/dlink-odm.c
+@@ -0,0 +1,140 @@
++// SPDX-License-Identifier: GPL-2.0
++/*
++ * NVMEM layout driver for the "Odm" factory data partition of D-Link
++ * AQUILA PRO AI devices (M30, M60).
++ *
++ * From offset 0x20 on, Odm holds a list of variable-length records:
++ *
++ *   u8 id, u8 attr[2], u8 marker (0x80), __le16 len, u8 data[len]
++ *
++ * The base MAC address is the record with id 0x30 and len 6. Its offset
++ * differs between units because the records in front of it (serial
++ * numbers, identifiers) differ in length, so a fixed-layout cell does not
++ * work reliably.
++ *
++ * Provides the cell "macaddr" with one cell argument: the argument is
++ * added to the base MAC address, as with "mac-base" fixed-layout cells.
++ */
++#include <linux/etherdevice.h>
++#include <linux/nvmem-consumer.h>
++#include <linux/nvmem-provider.h>
++#include <linux/of.h>
++#include <linux/platform_device.h>
++
++#define DLINK_ODM_START		0x20
++#define DLINK_ODM_SCAN_LEN	0x1000
++#define DLINK_ODM_HDR_LEN	6
++#define DLINK_ODM_MARKER	0x80
++#define DLINK_ODM_ID_MAC	0x30
++
++static int dlink_odm_mac_address_pp(void *priv, const char *id, int index,
++				    unsigned int offset, void *buf,
++				    size_t bytes)
++{
++	if (WARN_ON(bytes != ETH_ALEN))
++		return -EINVAL;
++
++	if (!is_valid_ether_addr(buf))
++		return -EINVAL;
++
++	if (index)
++		eth_addr_add(buf, index);
++
++	return 0;
++}
++
++static int dlink_odm_add_cells(struct nvmem_layout *layout)
++{
++	struct nvmem_device *nvmem = layout->nvmem;
++	struct nvmem_cell_info info = {};
++	struct device_node *layout_np;
++	unsigned int pos, len;
++	u8 *buf;
++	int ret;
++
++	buf = kmalloc(DLINK_ODM_SCAN_LEN, GFP_KERNEL);
++	if (!buf)
++		return -ENOMEM;
++
++	ret = nvmem_device_read(nvmem, 0, DLINK_ODM_SCAN_LEN, buf);
++	if (ret < 0)
++		goto out_free;
++	if (ret != DLINK_ODM_SCAN_LEN) {
++		ret = -EIO;
++		goto out_free;
++	}
++
++	ret = -ENOENT;
++	for (pos = DLINK_ODM_START;
++	     pos + DLINK_ODM_HDR_LEN <= DLINK_ODM_SCAN_LEN;
++	     pos += DLINK_ODM_HDR_LEN + len) {
++		if (buf[pos + 3] != DLINK_ODM_MARKER)
++			break;
++
++		len = buf[pos + 4] | (buf[pos + 5] << 8);
++		if (pos + DLINK_ODM_HDR_LEN + len > DLINK_ODM_SCAN_LEN)
++			break;
++
++		if (buf[pos] == DLINK_ODM_ID_MAC && len == ETH_ALEN) {
++			info.offset = pos + DLINK_ODM_HDR_LEN;
++			ret = 0;
++			break;
++		}
++	}
++
++	if (ret) {
++		dev_err(&layout->dev, "no MAC address record found\n");
++		goto out_free;
++	}
++
++	layout_np = of_nvmem_layout_get_container(nvmem);
++	if (!layout_np) {
++		ret = -ENOENT;
++		goto out_free;
++	}
++
++	info.name = "macaddr";
++	info.bytes = ETH_ALEN;
++	info.raw_len = ETH_ALEN;
++	info.read_post_process = dlink_odm_mac_address_pp;
++	info.np = of_get_child_by_name(layout_np, info.name);
++
++	ret = nvmem_add_one_cell(nvmem, &info);
++
++	of_node_put(layout_np);
++out_free:
++	kfree(buf);
++	return ret;
++}
++
++static int dlink_odm_probe(struct nvmem_layout *layout)
++{
++	layout->add_cells = dlink_odm_add_cells;
++
++	return nvmem_layout_register(layout);
++}
++
++static void dlink_odm_remove(struct nvmem_layout *layout)
++{
++	nvmem_layout_unregister(layout);
++}
++
++static const struct of_device_id dlink_odm_of_match_table[] = {
++	{ .compatible = "dlink,odm-layout" },
++	{},
++};
++MODULE_DEVICE_TABLE(of, dlink_odm_of_match_table);
++
++static struct nvmem_layout_driver dlink_odm_layout = {
++	.driver = {
++		.owner = THIS_MODULE,
++		.name = "dlink-odm-layout",
++		.of_match_table = dlink_odm_of_match_table,
++	},
++	.probe = dlink_odm_probe,
++	.remove = dlink_odm_remove,
++};
++module_nvmem_layout_driver(dlink_odm_layout);
++
++MODULE_LICENSE("GPL");
++MODULE_DESCRIPTION("NVMEM layout driver for the D-Link Odm factory data");
