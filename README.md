@@ -58,6 +58,7 @@ Nicht angewendet:
 | --- | --- |
 | `parked/squashfs-blocksize-per-device.sh` | squashfs-Blockgröße je Gerät (vorbereitet, nicht aktiv) |
 | `parked/cudy-rtl8221b-irq-parent.sh` | TR3000/M3000: `interrupt-parent = <&pio>` für den 2,5G-PHY (Backport OpenWrt 82b69df); geparkt, siehe Patchkopf |
+| `kernel/mt7915-mesh-scan-fix.sh` | mt7915-Treiber (MT7915/7916/7981/7986): Mesh-Unicast überlebt einen WLAN-Scan. Backport mt76 e3e6d490 für mt76 1e336a8; **zum Test angeboten, am Gerät nicht verifiziert**. Von Hand nach `make update` aufrufen; bricht ab, wenn mt76 eine andere Version hat. In Gluon 2025.1 enthalten |
 | `experiments/mips-tlb-arm-e/` | Backport der TLB-Korrektur aus 5.15.209 für Kernel vor 5.15.209, als Alternative zum früheren `kernel/revert-mips-tlb-uniquify.sh`; Messergebnis in der README dort. Überholt, seit Gluon v2023.2.x 5.15.211 mitbringt |
 
 ## Abhängigkeiten
