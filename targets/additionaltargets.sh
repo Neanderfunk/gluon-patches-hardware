@@ -13,12 +13,9 @@
 
 echo "Zusaetzliche Targets und Geraete"
 
-# Die alte Ueberschrift lautete "removing 6M-Flash TP-Link-Devices" - der Patch
-# entfernt aber nichts, er ergaenzt EAP225 Wall v2 und Zyxel NBG6616. Nebenbei
-# legt er ein zweites, gleichlautendes device() fuer den EAP225 Outdoor v3 an,
-# den Gluon selbst schon fuehrt; das ist ueberfluessig und gehoert aufgeraeumt.
-# Merkmal ist deshalb zyxel_nbg6616: eap225-outdoor-v3 steht auch im
-# unveraenderten Baum und taugt nicht zur Unterscheidung.
+# Merkmal ist zyxel_nbg6616: eap225-outdoor-v3, neben dem der EAP225 Wall v2
+# eingefuegt wird, steht auch im unveraenderten Baum und taugt nicht zur
+# Unterscheidung.
 echo "- TP-Link EAP225 Wall v2 und Zyxel NBG6616"
 apply_patch "$PATCH_DIR/targets-ath79-generic.patch" \
   "targets/ath79-generic" \
@@ -34,18 +31,13 @@ apply_patch "$PATCH_DIR/targets-ath79-nand.patch" \
   "targets/ath79-nand" \
   'zte_mf286r'
 
-# Der zweite Aufruf stand hier unter der Ueberschrift "adding RPI4", nimmt aber
-# dieselbe Patchdatei wie der ZTE MF286R darueber: einen RPI4-Patch gibt es
-# nicht. Der Aufruf bleibt als Beleg stehen, er ist wirkungslos.
-echo "- (RPI4: kein eigener Patch vorhanden, siehe Kommentar)"
-apply_patch "$PATCH_DIR/targets-ath79-nand.patch" \
-  "targets/ath79-nand" \
-  'zte_mf286r'
-
-echo "- Linksys EA8300 / MR8300"
+# Den MR8300 und die Pakettabelle ATH10K_PACKAGES_IPQ40XX_QCA9984 fuehrt
+# Gluon 2025.1 selbst; der Patch legte beide ein zweites Mal an (doppeltes
+# device() mit anderem Paketsatz). Merkmal deshalb linksys_ea8300.
+echo "- AVM FRITZ!Repeater 3000, Linksys EA8300, Pakete MR33 und MF289F"
 apply_patch "$PATCH_DIR/targets-ipq40xx-generic.patch" \
   "targets/ipq40xx-generic" \
-  'ATH10K_PACKAGES_IPQ40XX_QCA9984'
+  'linksys_ea8300'
 
 # targets-mk.patch entfaellt unter 2025.1: ipq40xx,chromium steht upstream im
 # BROKEN-Block von targets/targets.mk, und ipq807x,generic gibt es nicht mehr -
@@ -57,10 +49,14 @@ apply_patch "$PATCH_DIR/targets-ipq40xx-chromium.patch" \
   "targets/ipq40xx-chromium" \
   'ATH10K_PACKAGES_IPQ40XX'
 
-echo "- Mikrotik wAP G-5HacT2HnD / wAP ac"
+# Traegt ausserdem beide Mikrotik-wAP als Outdoor-Geraete in platform.lua ein,
+# jeweils im Block ihres Targets (wAP G-5HacT2HnD: ath79/mikrotik, wAP ac:
+# ipq40xx/mikrotik). Bis 01.10.2026 standen beide im Block ath79/generic und
+# wirkten nie.
+echo "- Mikrotik wAP ac, Outdoor-Liste fuer wAP ac und wAP G-5HacT2HnD"
 apply_patch "$PATCH_DIR/targets-ipq40xx-mikrotik.patch" \
   "targets/ipq40xx-mikrotik" \
-  'kmod-ath10k-smallbuffers'
+  'mikrotik_wap-ac'
 
 # Nur noch die WAX218: den AX3600 fuehrt Gluon 2025.1 selbst in
 # targets/qualcommax-ipq807x, mit denselben Paketausschluessen wie unser
@@ -70,18 +66,8 @@ apply_patch "$PATCH_DIR/targets-qualcommax-ipq807x.patch" \
   "targets/qualcommax-ipq807x" \
   'netgear_wax218'
 
-echo "- Unifi 6LR v2/v3, Netgear WAX206"
-apply_patch "$PATCH_DIR/targets-mediatek-mt7622.patch" \
-  "targets/mediatek-mt7622" \
-  'ubnt_unifi-6-lr-v2'
-
-# Auch dieser Aufruf stand unter einer fremden Ueberschrift ("adding AVM
-# FB7430") und wiederholt nur den Linksys-Patch von oben. Die FB7430 kommt mit
-# dem lantiq-Patch direkt darunter.
-echo "- (AVM FB7430: der Aufruf darueber wiederholt nur ipq40xx-generic)"
-apply_patch "$PATCH_DIR/targets-ipq40xx-generic.patch" \
-  "targets/ipq40xx-generic" \
-  'ATH10K_PACKAGES_IPQ40XX_QCA9984'
+# targets-mediatek-mt7622.patch entfaellt: UniFi 6 LR v2/v3 und WAX206 fuehrt
+# Gluon 2025.1 selbst.
 
 # AVM FRITZ!Box 7430 und 3390 stehen nicht mehr hier, sondern in
 # add-lantiq-xrx200-devices.sh: derselbe Patch legt einen OpenWrt-Patch im
@@ -92,7 +78,8 @@ apply_patch "$PATCH_DIR/targets-ipq40xx-generic.patch" \
 #   "targets/ramips-mt7620" \
 #   'edimax_br-6478ac-v2'
 
-echo "- Cudy M1800 und X6 v1, TP-Link Archer AX23 v1"
+# Archer AX23 v1 und UniFi nanoHD fuehrt Gluon 2025.1 selbst.
+echo "- Cudy M1800, Mikrotik RB750Gr3"
 apply_patch "$PATCH_DIR/targets-ramips-mt7621.patch" \
   "targets/ramips-mt7621" \
   'cudy_m1800'

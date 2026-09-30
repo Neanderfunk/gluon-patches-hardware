@@ -18,4 +18,4 @@ apply_patch "$PATCH_DIR/010-primary-mac.patch" \
 echo "- 020-interfaces"
 apply_patch "$PATCH_DIR/020-interfaces.patch" \
   "package/gluon-core/luasrc/lib/gluon/upgrade/020-interfaces" \
-  'avm,fritzbox-7530'
+  'avm,fritz3390'

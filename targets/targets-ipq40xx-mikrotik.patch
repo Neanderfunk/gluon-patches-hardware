@@ -1,18 +1,25 @@
 diff --git a/package/gluon-core/luasrc/usr/lib/lua/gluon/platform.lua b/package/gluon-core/luasrc/usr/lib/lua/gluon/platform.lua
-index 014e516c..931363b5 100644
+index aba61f2d..99213266 100644
 --- a/package/gluon-core/luasrc/usr/lib/lua/gluon/platform.lua
 +++ b/package/gluon-core/luasrc/usr/lib/lua/gluon/platform.lua
-@@ -26,6 +26,8 @@ function M.is_outdoor_device()
- 	if M.match('ath79', 'generic', {
- 		'devolo,dvl1750x',
- 		'librerouter,librerouter-v1',
+@@ -55,6 +55,7 @@ function M.is_outdoor_device()
+ 		return true
+ 
+ 	elseif M.match('ath79', 'mikrotik', {
 +		'mikrotik,routerboard-wap-g-5hact2hnd',
+ 		'mikrotik,routerboard-wapr-2nd',
+ 	}) then
+ 		return true
+@@ -67,6 +68,7 @@ function M.is_outdoor_device()
+ 
+ 	elseif M.match('ipq40xx', 'mikrotik', {
+ 		'mikrotik,sxtsq-5-ac',
 +		'mikrotik,wap-ac',
- 		'plasmacloud,pa300',
- 		'plasmacloud,pa300e',
- 		'tplink,cpe210-v1',
+ 	}) then
+ 		return true
+ 
 diff --git a/targets/ipq40xx-mikrotik b/targets/ipq40xx-mikrotik
-index aed02b2a..eb08ef45 100644
+index aed02b2a..b509ee7b 100644
 --- a/targets/ipq40xx-mikrotik
 +++ b/targets/ipq40xx-mikrotik
 @@ -1,6 +1,27 @@
@@ -44,13 +51,15 @@ index aed02b2a..eb08ef45 100644
  
  device('mikrotik-hap-ac2', 'mikrotik_hap-ac2', {
  	packages = ATH10K_PACKAGES_IPQ40XX_SMALLBUFFERS,
-@@ -10,3 +31,9 @@ device('mikrotik-sxtsq-5-ac-rbsxtsqg-5acd', 'mikrotik_sxtsq-5-ac', {
+@@ -10,3 +31,11 @@ device('mikrotik-sxtsq-5-ac-rbsxtsqg-5acd', 'mikrotik_sxtsq-5-ac', {
  	factory = false,
  	aliases = {'mikrotik-discg-5acd'},
  })
 +
 +device('mikrotik-wap-ac', 'mikrotik_wap-ac', {
-+	aliases = {'mikrotik-routerboard-wap-g-5hacd2hnd'},
-+	aliases = {'mikrotik-routerboard-wap-ac-d2'},
++	aliases = {
++		'mikrotik-routerboard-wap-g-5hacd2hnd',
++		'mikrotik-routerboard-wap-ac-d2',
++	},
 +	factory = false,
 +})
