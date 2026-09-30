@@ -1,53 +1,32 @@
 diff --git a/targets/ipq40xx-generic b/targets/ipq40xx-generic
-index 5949d2bb..1fabfff6 100644
+index 5949d2bb..8de8b28e 100644
 --- a/targets/ipq40xx-generic
 +++ b/targets/ipq40xx-generic
-@@ -87,6 +87,22 @@ device('avm-fritz-repeater-1200', 'avm_fritzrepeater-1200', {
+@@ -87,6 +87,12 @@ device('avm-fritz-repeater-1200', 'avm_fritzrepeater-1200', {
  	factory = false,
  })
  
 +device('avm-fritz-repeater-3000', 'avm_fritzrepeater-3000', {
 +	factory = false,
-+	packages = { -- exclude until Gluon supports third radio
-+	'kmod-ath10k',
-+	'-kmod-ath10k-ct',
-+	'-kmod-ath10k-ct-smallbuffers',
-+	'ath10k-firmware-qca4019',
-+	'-ath10k-firmware-qca4019-ct',
-+	'-ath10k-firmware-qca9984-ct',
-+	'-ath10k-board-qca9984',
-+	},
-+	broken = true,
-+	-- 3rd WiFi radio not supported (5GHz DFS channels 100+)
-+	-- outdoor mode is broken due to 5GHz being limited to channels 36-64
++	packages = ATH10K_PACKAGES_IPQ40XX_QCA9984,
++	broken = true, -- third radio (QCA9984) untested
 +})
 +
  
  -- GL.iNet
  
-@@ -103,6 +119,21 @@ device('gl.inet-gl-b1300', 'glinet_gl-b1300', {
+@@ -103,6 +109,10 @@ device('gl.inet-gl-b1300', 'glinet_gl-b1300', {
  
  device('linksys-ea6350v3', 'linksys_ea6350v3')
  
 +device('linksys-ea8300-dallas', 'linksys_ea8300', {
-+	packages = { -- exclude until Gluon supports third radio
-+	'kmod-ath10k',
-+	'-kmod-ath10k-ct',
-+	'-kmod-ath10k-ct-smallbuffers',
-+	'ath10k-firmware-qca4019',
-+	'-ath10k-firmware-qca4019-ct',
-+	'-ath10k-firmware-qca9888-ct',
-+	'-ath10k-board-qca9888',
-+	},
-+	broken = true,
-+	-- 3rd WiFi radio not supported (5GHz DFS channels 100+)
-+	-- outdoor mode is broken due to 5GHz being limited to channels 36-64
++	packages = ATH10K_PACKAGES_IPQ40XX_QCA9888,
 +})
 +
  device('linksys-mr8300-dallas', 'linksys_mr8300',{
  	packages = ATH10K_PACKAGES_IPQ40XX_QCA9888,
  	factory = false,
-@@ -129,6 +160,11 @@ device('meraki-mr33-access-point', 'meraki_mr33', {
+@@ -129,6 +139,11 @@ device('meraki-mr33-access-point', 'meraki_mr33', {
  	packages = {
  		-- radio0 is monitoring radio - removed for now
  		-- the -ct firmware does not have working mesh
@@ -59,7 +38,7 @@ index 5949d2bb..1fabfff6 100644
  		'-ath10k-firmware-qca9887-ct',
  		'-ath10k-board-qca9887',
  	},
-@@ -192,6 +228,7 @@ device('plasma-cloud-pa2200', 'plasmacloud_pa2200', {
+@@ -192,6 +207,7 @@ device('plasma-cloud-pa2200', 'plasmacloud_pa2200', {
  -- ZTE
  
  device('zte-mf289f', 'zte_mf289f', {
