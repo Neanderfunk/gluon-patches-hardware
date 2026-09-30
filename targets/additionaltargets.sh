@@ -79,7 +79,16 @@ apply_patch "$PATCH_DIR/targets-qualcommax-ipq807x.patch" \
 #   'edimax_br-6478ac-v2'
 
 # Archer AX23 v1 und UniFi nanoHD fuehrt Gluon 2025.1 selbst.
-echo "- Cudy M1800, Mikrotik RB750Gr3"
+echo "- Cudy M1800, Mikrotik RB750Gr3, TP-Link EAP613 v1"
 apply_patch "$PATCH_DIR/targets-ramips-mt7621.patch" \
   "targets/ramips-mt7621" \
   'cudy_m1800'
+
+# Profile, die OpenWrt 24.10 schon hat; hier fehlt nur die Gluon-Zeile.
+# Laeuft nach devices/add-cudy-3000.sh, der Patch ist gegen dessen Stand
+# erzeugt. Upstream-Namen, damit der Patch entfaellt, sobald Gluon die Geraete
+# selbst fuehrt.
+echo "- ASUS RT-AX59U, Cudy WR3000P v1, GL.iNet GL-MT6000"
+apply_patch "$PATCH_DIR/targets-mediatek-filogic.patch" \
+  "targets/mediatek-filogic" \
+  'glinet_gl-mt6000'

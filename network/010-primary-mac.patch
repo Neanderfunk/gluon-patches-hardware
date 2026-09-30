@@ -1,4 +1,8 @@
 Traegt linksys ea8300 und mr8300 in den LAN-Block von primary_addrs ein.
+Dazu asus rt-ax59u in den filogic-LAN-Block, wie Gluon es fuer seine
+Geschwister tuf-ax4200/tuf-ax6000 macht: das Etikett traegt die MAC von gmac0
+(label-mac-device), und LAN wie WAN haengen dort am selben gmac0. Neues Geraet
+ohne Knotenhistorie, also kein Identitaetswechsel.
 
 Zum Stand unter Gluon 2025.1 (geprueft 2026-09-09):
 
@@ -20,7 +24,7 @@ Zum Stand unter Gluon 2025.1 (geprueft 2026-09-09):
   Identitaetswechsel, nicht bloss das Entfernen dieser Zeile.
 
 diff --git a/package/gluon-core/luasrc/lib/gluon/upgrade/010-primary-mac b/package/gluon-core/luasrc/lib/gluon/upgrade/010-primary-mac
-index fce501a6..08603e94 100755
+index e0018234..22a2b610 100755
 --- a/package/gluon-core/luasrc/lib/gluon/upgrade/010-primary-mac
 +++ b/package/gluon-core/luasrc/lib/gluon/upgrade/010-primary-mac
 @@ -81,6 +81,8 @@ local primary_addrs = {
@@ -32,3 +36,11 @@ index fce501a6..08603e94 100755
  			'meraki,mr33',
  			'plasmacloud,pa1200',
  			'plasmacloud,pa2200',
+@@ -95,6 +97,7 @@ local primary_addrs = {
+ 			'netgear,dgn3500b',
+ 		}},
+ 		{'mediatek', 'filogic', {
++			'asus,rt-ax59u',
+ 			'asus,tuf-ax4200',
+ 			'asus,tuf-ax6000',
+ 		}},
