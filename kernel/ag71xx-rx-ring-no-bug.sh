@@ -37,5 +37,5 @@ fi
 # Der Patch muss auf den Treiber passen, sonst scheitert erst der Kernelbau.
 # Probe gegen die Quelle unter files/ (dieselbe Datei, anderer Praefix).
 DRV="target/linux/ath79/files"
-( cd "$DRV" && patch -p1 -s -f --dry-run < "$PATCH_DIR/$KPATCH" >/dev/null ) \
+( cd "$DRV" && patch -p1 -s -f --dry-run "${PATCH_STRICT[@]}" < "$PATCH_DIR/$KPATCH" >/dev/null ) \
   || patch_abort "$KPATCH passt nicht auf $DRV/drivers/net/ethernet/atheros/ag71xx/ag71xx_main.c."
