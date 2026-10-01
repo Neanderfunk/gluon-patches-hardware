@@ -23,7 +23,17 @@ set -o errexit -o nounset -o pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-PRE_UPDATE=()
+# OpenWrt-Backports neuer Geraete (01.10.2026): legen ihre Commits unter
+# patches/openwrt ab, "make update" spielt sie per git am ein. Praefixe 5100 bis
+# 5600 legen die Reihenfolge fest (M3000 v2 setzt auf AP3000 Wall auf).
+PRE_UPDATE=(
+  devices/aruba-ap-32x/openwrt.sh             # Aruba AP-324/325 (ipq806x, aus 25.12)
+  devices/zyxel-nwa90ax/openwrt.sh            # Zyxel NWA90AX und NWA90AX Pro (aus 25.12)
+  devices/cudy-ap3000-wall-v1/openwrt.sh      # Cudy AP3000 Wall v1 (aus 25.12)
+  devices/cudy-wr3000u-v1/openwrt.sh          # Cudy WR3000U v1 (aus 25.12)
+  devices/tplink-eap620-hd-v1/openwrt.sh      # TP-Link EAP620 HD v1 (qualcommax, aus 25.12)
+  devices/cudy-m3000-v2-yt8821/openwrt.sh     # Cudy M3000 v2 mit YT8821 (aus 25.12)
+)
 
 # Reihenfolge wie im Neanderfunk-Bau. Die Skripte sind voneinander
 # unabhaengig.
@@ -36,6 +46,12 @@ POST_UPDATE=(
   devices/dlink-aquila-odm-mac.sh             # D-Link M30/M60: MAC aus Odm per Layout-Parser
   device-fixes/fix-xiaomi-ax6s-bootflags.sh   # Xiaomi Redmi AX6S: Boot-Flags bestaetigen
   targets/additionaltargets.sh                # zusaetzliche Targets und Geraete aus OpenWrt
+  devices/aruba-ap-32x/targets.sh             # Gluon-Eintraege der OpenWrt-Backports oben
+  devices/zyxel-nwa90ax/targets.sh
+  devices/cudy-ap3000-wall-v1/targets.sh
+  devices/cudy-wr3000u-v1/targets.sh
+  devices/tplink-eap620-hd-v1/targets.sh
+  devices/cudy-m3000-v2-yt8821/targets.sh
   devices/add-cellular.sh                     # ZTE MF286R
   network/interfaces-patch.sh                 # primaere MACs und Schnittstellen der zusaetzlichen Geraete
   kernel/rtl8221b-skip-mmd30.sh               # RTL8221B: MMD 30 beim PHY-Scan auslassen

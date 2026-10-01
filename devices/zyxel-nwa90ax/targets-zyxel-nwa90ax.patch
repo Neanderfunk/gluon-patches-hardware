@@ -1,0 +1,23 @@
+--- a/targets/mediatek-filogic
++++ b/targets/mediatek-filogic
+@@ -147,4 +147,6 @@ device('xiaomi-mi-router-ax3000t-openwrt-u-boot-layout', 'xiaomi_mi-router-ax300
+ 
+ -- Zyxel
+ 
+-device('zyxel-nwa50ax-pro', 'zyxel_nwa50ax-pro')
++device('zyxel-nwa50ax-pro', 'zyxel_nwa50ax-pro', {
++	aliases = {'zyxel-nwa90ax-pro'},
++})
+--- a/targets/ramips-mt7621
++++ b/targets/ramips-mt7621
+@@ -196,7 +196,9 @@ device('zbtlink-zbt-wg3526-32m', 'zbtlink_zbt-wg3526-32m', {
+ 
+ -- Zyxel
+ 
+-device('zyxel-nwa50ax', 'zyxel_nwa50ax')
++device('zyxel-nwa50ax', 'zyxel_nwa50ax', {
++	aliases = {'zyxel-nwa90ax'},
++})
+ 
+ device('zyxel-nwa55axe', 'zyxel_nwa55axe', {
+ 	broken = true, -- Missing LED / Reset button

@@ -38,6 +38,8 @@ machen weiter. Scheitert einer, brechen sie mit Fehler ab.
 
 | Skript | Phase | Zweck | Herkunft, Ende |
 | --- | --- | --- | --- |
+| `devices/<geraet>/openwrt.sh` | pre-update | OpenWrt-Backports aus 25.12 fuer neue Geraete: Aruba AP-324/325, Zyxel NWA90AX und NWA90AX Pro, Cudy AP3000 Wall v1, Cudy WR3000U v1, TP-Link EAP620 HD v1, Cudy M3000 v2 mit YT8821. Legt die Commits als `patches/openwrt/5x00-hw-<geraet>-*.patch` ab, `make update` spielt sie per `git am` ein | Original-Commits mit Autor und Signed-off-by; Uebersicht `devices/neue-geraete-2026-10.md`, je Geraet `devices/<geraet>/README.md` |
+| `devices/<geraet>/targets.sh` | post-update | Gluon-Eintrag der Backports darueber; prueft vorher, dass die OpenWrt-Seite im Baum steht | |
 | `devices/zbit-zb25vq128.sh` | post-update | Kernel-Patch für den Zbit-ZB25VQ128-Flash (Totolink X5000R ab 2022); das Gerät kennt Gluon 2025.1, die Flash-ID der Kernel nicht | Daniel Palmer 2021, nie gemerged; auf 6.6 portiert, Kompilieren und Gerät ungetestet |
 | `devices/add-nanopi-r2c.sh` | post-update | FriendlyElec NanoPi R2C | |
 | `devices/add-lantiq-xrx200-devices.sh` | post-update | AVM FRITZ!Box 3390 | |
@@ -45,7 +47,7 @@ machen weiter. Scheitert einer, brechen sie mit Fehler ab.
 | `devices/remove-dlink-m30-recovery.sh` | post-update | D-Link M30: kein recovery-Image, es installiert nicht | Gluon #3816 |
 | `devices/dlink-aquila-odm-mac.sh` | post-update | D-Link AQUILA PRO AI M30 A1 und M60 A1: Basis-MAC aus der Werksdaten-Partition `Odm` per eigenem nvmem-Layout-Parser (Kernel-Patch `451-nvmem-add-layout-for-D-Link-Odm.patch`) statt fester Zelle `0x81`. Geräte aus Mehrfach-Packs (`M60-2`, `M30/CP`) haben den MAC-Eintrag weiter hinten (`0x83`, `0x87`) | eigener Parser, Muster wie OpenWrts Adtran-Layout; OpenWrt PR 23902 (geschlossen), 24967 (offen) |
 | `device-fixes/fix-xiaomi-ax6s-bootflags.sh` | post-update | Xiaomi Redmi AX6S: Boot-Flags bestätigen, kein Rückfall auf Stock | |
-| `targets/additionaltargets.sh` | post-update | zusätzliche Targets und Geräte aus OpenWrt, die Gluon 2025.1 nicht baut; ipq807x heißt jetzt `qualcommax-ipq807x` | |
+| `targets/additionaltargets.sh` | post-update | zusätzliche Targets und Geräte aus OpenWrt, die Gluon 2025.1 nicht baut; ipq807x heißt jetzt `qualcommax-ipq807x`. Seit 01.10.2026 auch GL-MT6000, RT-AX59U, WR3000P v1 (filogic) und EAP613 v1 (mt7621), deren Profile OpenWrt 24.10 schon hat | |
 | `devices/add-cellular.sh` | post-update | Mobilfunkgerät ZTE MF286R | |
 | `network/interfaces-patch.sh` | post-update | primäre MACs und Schnittstellenzuordnung für die zusätzlichen Geräte | |
 | `kernel/rtl8221b-skip-mmd30.sh` | post-update | beim PHY-Scan MMD 30 des RTL8221B nicht lesen; sonst ist der 2,5G-Port tot, wenn beim Booten ein Kabel steckt (Cudy TR3000/WR3000H) | Backport OpenWrt 88dcd8c |
