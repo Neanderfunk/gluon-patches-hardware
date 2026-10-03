@@ -9,6 +9,11 @@
 # Feld lief (Entscheidung adorfer 27.09.2026). Portierung auf 6.6 siehe
 # Patchkopf.
 #
+# Wird bis auf Weiteres mitgefuehrt (adorfer 03.10.2026): Er kostet nichts,
+# und ein X5000R mit Zbit-Flash zum Testen ist praktisch nicht zu bekommen.
+# Das ist kein offener Pruefpunkt; erst ein Kernel-Sprung, an dem er nicht
+# mehr greift, ist Anlass, ihn anzusehen.
+#
 # Legt den Patch nur ab: OpenWrt wendet target/linux/ramips/patches-6.6/ beim
 # Kernel-Bau selbst an. Faellt das Verzeichnis beim naechsten Kernel-Sprung
 # weg, bricht copy_into_tree hoerbar ab - genau so ist es gemeint.
