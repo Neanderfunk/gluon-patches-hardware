@@ -39,6 +39,7 @@ machen weiter. Scheitert einer, brechen sie mit Fehler ab.
 | Skript | Phase | Zweck | Herkunft, Ende |
 | --- | --- | --- | --- |
 | `devices/<geraet>/openwrt.sh` | pre-update | OpenWrt-Backports aus 25.12 fuer neue Geraete: Aruba AP-324/325, Zyxel NWA90AX und NWA90AX Pro, Cudy AP3000 Wall v1, Cudy WR3000U v1, TP-Link EAP620 HD v1, Cudy M3000 v2 mit YT8821. Legt die Commits als `patches/openwrt/5x00-hw-<geraet>-*.patch` ab, `make update` spielt sie per `git am` ein | Original-Commits mit Autor und Signed-off-by; Uebersicht `devices/neue-geraete-2026-10.md`, je Geraet `devices/<geraet>/README.md` |
+| `kernel/mt7915-ps-aql/openwrt.sh` | pre-update | mt7915/mt798x: Power-Save-/AQL-Satz aus Gluon main (PR #3673, Merge `2bfae3d6`): legt die sechs Gluon-Patches 0013-0018 als `patches/openwrt/5150-hw-mt7915-ps-aql-*.patch` ab und entfernt Gluons `0012-mt7915-detect-and-purge-stuck-PLE-queues.patch` (dort per Revert ersetzt). Gegen openwrt/mt76#1009 (TX-Stillstand bei Clients im Power-Save) | Original-Patches von David Bauer u. a., unveraendert |
 | `devices/<geraet>/targets.sh` | post-update | Gluon-Eintrag der Backports darueber; prueft vorher, dass die OpenWrt-Seite im Baum steht | |
 | `devices/zbit-zb25vq128.sh` | post-update | Kernel-Patch für den Zbit-ZB25VQ128-Flash (Totolink X5000R ab 2022); das Gerät kennt Gluon 2025.1, die Flash-ID der Kernel nicht | Daniel Palmer 2021, nie gemerged; auf 6.6 portiert, Kompilieren und Gerät ungetestet |
 | `devices/add-nanopi-r2c.sh` | post-update | FriendlyElec NanoPi R2C | |

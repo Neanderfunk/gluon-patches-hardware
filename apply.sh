@@ -33,6 +33,7 @@ PRE_UPDATE=(
   devices/cudy-wr3000u-v1/openwrt.sh          # Cudy WR3000U v1 (aus 25.12)
   devices/tplink-eap620-hd-v1/openwrt.sh      # TP-Link EAP620 HD v1 (qualcommax, aus 25.12)
   devices/cudy-m3000-v2-yt8821/openwrt.sh     # Cudy M3000 v2 mit YT8821 (aus 25.12)
+  kernel/mt7915-ps-aql/openwrt.sh             # mt7915/mt798x Power-Save/AQL aus Gluon main (#3673), ersetzt Gluons 0012
 )
 
 # Reihenfolge wie im Neanderfunk-Bau. Die Skripte sind voneinander
