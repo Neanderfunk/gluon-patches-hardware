@@ -48,6 +48,7 @@ machen weiter. Scheitert einer, brechen sie mit Fehler ab.
 | `devices/remove-dlink-m30-recovery.sh` | post-update | D-Link M30: kein recovery-Image, es installiert nicht | Gluon #3816 |
 | `devices/dlink-aquila-odm-mac.sh` | post-update | D-Link AQUILA PRO AI M30 A1 und M60 A1: Basis-MAC aus der Werksdaten-Partition `Odm` per eigenem nvmem-Layout-Parser (Kernel-Patch `451-nvmem-add-layout-for-D-Link-Odm.patch`) statt fester Zelle `0x81`. Geräte aus Mehrfach-Packs (`M60-2`, `M30/CP`) haben den MAC-Eintrag weiter hinten (`0x83`, `0x87`) | eigener Parser, Muster wie OpenWrts Adtran-Layout; OpenWrt PR 23902 (geschlossen), 24967 (offen) |
 | `device-fixes/fix-xiaomi-ax6s-bootflags.sh` | post-update | Xiaomi Redmi AX6S: Boot-Flags bestätigen, kein Rückfall auf Stock | |
+| `device-fixes/fix-xiaomi-ax6s-compat-version.sh` | post-update | Xiaomi Redmi AX6S: `board.d/05_compat-version` setzt bei der Erstinstallation `compat_version` 2.0 (wie OpenWrt beim E8450 UBI); sonst steht ein per factory.bin umgestellter Knoten auf 1.0 und bekommt kein Update mehr | |
 | `targets/additionaltargets.sh` | post-update | zusätzliche Targets und Geräte aus OpenWrt, die Gluon 2025.1 nicht baut; ipq807x heißt jetzt `qualcommax-ipq807x`. Seit 01.10.2026 auch GL-MT6000, RT-AX59U, WR3000P v1 (filogic) und EAP613 v1 (mt7621), deren Profile OpenWrt 24.10 schon hat | |
 | `devices/add-cellular.sh` | post-update | Mobilfunkgerät ZTE MF286R | |
 | `network/interfaces-patch.sh` | post-update | primäre MACs und Schnittstellenzuordnung für die zusätzlichen Geräte | |

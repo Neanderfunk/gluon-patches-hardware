@@ -46,6 +46,7 @@ POST_UPDATE=(
   devices/remove-dlink-m30-recovery.sh        # D-Link M30: kein recovery-Image (Gluon #3816)
   devices/dlink-aquila-odm-mac.sh             # D-Link M30/M60: MAC aus Odm per Layout-Parser
   device-fixes/fix-xiaomi-ax6s-bootflags.sh   # Xiaomi Redmi AX6S: Boot-Flags bestaetigen
+  device-fixes/fix-xiaomi-ax6s-compat-version.sh # Xiaomi Redmi AX6S: compat_version 2.0 bei Erstinstallation
   targets/additionaltargets.sh                # zusaetzliche Targets und Geraete aus OpenWrt
   devices/aruba-ap-32x/targets.sh             # Gluon-Eintraege der OpenWrt-Backports oben
   devices/zyxel-nwa90ax/targets.sh
