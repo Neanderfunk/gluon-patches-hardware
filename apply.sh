@@ -27,38 +27,10 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # patches/openwrt ab, "make update" spielt sie per git am ein. Praefixe 5100 bis
 # 5600 legen die Reihenfolge fest (M3000 v2 setzt auf AP3000 Wall auf).
 PRE_UPDATE=(
-  devices/aruba-ap-32x/openwrt.sh             # Aruba AP-324/325 (ipq806x, aus 25.12)
-  devices/zyxel-nwa90ax/openwrt.sh            # Zyxel NWA90AX und NWA90AX Pro (aus 25.12)
-  devices/cudy-ap3000-wall-v1/openwrt.sh      # Cudy AP3000 Wall v1 (aus 25.12)
-  devices/cudy-wr3000u-v1/openwrt.sh          # Cudy WR3000U v1 (aus 25.12)
-  devices/tplink-eap620-hd-v1/openwrt.sh      # TP-Link EAP620 HD v1 (qualcommax, aus 25.12)
-  devices/cudy-m3000-v2-yt8821/openwrt.sh     # Cudy M3000 v2 mit YT8821 (aus 25.12)
-  kernel/mt7915-ps-aql/openwrt.sh             # mt7915/mt798x Power-Save/AQL aus Gluon main (#3673), ersetzt Gluons 0012
 )
 
-# Reihenfolge wie im Neanderfunk-Bau. Die Skripte sind voneinander
-# unabhaengig.
 POST_UPDATE=(
-  devices/zbit-zb25vq128.sh                   # Zbit-Flash des Totolink X5000R (Kernel-Patch)
-  devices/add-nanopi-r2c.sh                   # FriendlyElec NanoPi R2C
-  devices/add-lantiq-xrx200-devices.sh        # AVM FRITZ!Box 3390
-  devices/add-cudy-3000.sh                    # Cudy AP3000 v1, TR3000 256MB v1
-  devices/remove-dlink-m30-recovery.sh        # D-Link M30: kein recovery-Image (Gluon #3816)
-  devices/dlink-aquila-odm-mac.sh             # D-Link M30/M60: MAC aus Odm per Layout-Parser
-  device-fixes/fix-xiaomi-ax6s-bootflags.sh   # Xiaomi Redmi AX6S: Boot-Flags bestaetigen
-  device-fixes/fix-xiaomi-ax6s-compat-version.sh # Xiaomi Redmi AX6S: compat_version 2.0 bei Erstinstallation
-  targets/additionaltargets.sh                # zusaetzliche Targets und Geraete aus OpenWrt
-  devices/aruba-ap-32x/targets.sh             # Gluon-Eintraege der OpenWrt-Backports oben
-  devices/zyxel-nwa90ax/targets.sh
-  devices/cudy-ap3000-wall-v1/targets.sh
-  devices/cudy-wr3000u-v1/targets.sh
-  devices/tplink-eap620-hd-v1/targets.sh
-  devices/cudy-m3000-v2-yt8821/targets.sh
-  devices/add-cellular.sh                     # ZTE MF286R
-  network/interfaces-patch.sh                 # primaere MACs und Schnittstellen der zusaetzlichen Geraete
-  kernel/rtl8221b-skip-mmd30.sh               # RTL8221B: MMD 30 beim PHY-Scan auslassen
-  kernel/mt7530-phy-disable-eee.sh            # MT7530-PHY: EEE aus
-  kernel/ag71xx-rx-ring-no-bug.sh             # ag71xx: kein BUG() bei leerem RX-Ring
+  kernel/ag71xx-rx-ring-no-bug.sh               # ag71xx (ar71xx): kein BUG() bei leerem RX-Ring
 )
 
 PHASE="${1:-}"

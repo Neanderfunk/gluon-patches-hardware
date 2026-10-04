@@ -9,15 +9,17 @@
 # genau diesen Fall einen Rueckweg (oom_timer), die Assertion kommt ihm nur
 # zuvor. Einzelheiten im Patchkopf.
 #
-# Der Treiber liegt unter target/linux/ath79/files/ und wird vor den Patches
-# in den Kernelbaum kopiert; ein Kernel-Patch in patches-5.15/ greift also.
+# Gluon 2021.1/OpenWrt 19.07: der Treiber liegt unter target/linux/ar71xx/files/
+# und wird vor den Patches in den Kernelbaum kopiert; ein Kernel-Patch in
+# patches-4.14/ greift also. Alle 4/32-Geraete der Sackgasse laufen auf ar71xx
+# mit ag71xx; der ar71xx-Treiber hat dieselbe Assertion.
 #
 # Wird aus dem Gluon-Verzeichnis heraus aufgerufen, so wie apply.sh es tut.
 
 . "$(dirname "${BASH_SOURCE[0]}")/../lib-patch.sh"
 
-KPATCH="950-ag71xx-rx-ring-exhausted-no-bug.patch"
-TARGET="target/linux/ath79/patches-6.6/$KPATCH"
+KPATCH="960-ag71xx-rx-ring-exhausted-no-bug.patch"
+TARGET="target/linux/ar71xx/patches-4.14/$KPATCH"
 
 echo "ag71xx: kein BUG() bei leerem RX-Ring"
 
@@ -36,6 +38,6 @@ fi
 
 # Der Patch muss auf den Treiber passen, sonst scheitert erst der Kernelbau.
 # Probe gegen die Quelle unter files/ (dieselbe Datei, anderer Praefix).
-DRV="target/linux/ath79/files"
+DRV="target/linux/ar71xx/files"
 ( cd "$DRV" && patch -p1 -s -f --dry-run "${PATCH_STRICT[@]}" < "$PATCH_DIR/$KPATCH" >/dev/null ) \
   || patch_abort "$KPATCH passt nicht auf $DRV/drivers/net/ethernet/atheros/ag71xx/ag71xx_main.c."

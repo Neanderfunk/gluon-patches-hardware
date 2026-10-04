@@ -1,0 +1,36 @@
+From: Freifunk im Neanderland <projekt@neanderfunk.de>
+Subject: ag71xx (ar71xx): do not BUG() when the RX ring runs out of refilled buffers
+
+Port of our ath79 patch (gluon-patches-hardware v2025.1.x,
+kernel/950-ag71xx-rx-ring-exhausted-no-bug.patch) to the ar71xx driver of
+OpenWrt 19.07, for the 4/32 devices of the Neanderfunk "Sackgasse" build.
+
+Under memory pressure the RX refill in ag71xx_ring_rx_refill() fails, and
+once every descriptor has been consumed the RX loop hits ag71xx_assert(0),
+which is BUG() and panics in interrupt context (seen on a 64 MB Archer C25
+with the ath79 driver; the ar71xx driver has the identical assertion). The
+driver already has a recovery path: ag71xx_poll() prints "out of memory",
+completes NAPI and arms oom_timer to retry the refill. Break out of the loop
+instead, with a rate-limited warning, and let that path retry.
+
+Signed-off-by: Freifunk im Neanderland <projekt@neanderfunk.de>
+---
+--- a/drivers/net/ethernet/atheros/ag71xx/ag71xx_main.c
++++ b/drivers/net/ethernet/atheros/ag71xx/ag71xx_main.c
+@@ -1091,7 +1091,15 @@
+ 			break;
+ 
+ 		if ((ring->dirty + ring_size) == ring->curr) {
+-			ag71xx_assert(0);
++			/* Every descriptor went to the stack and none could be
++			 * refilled: the allocation in ag71xx_ring_rx_refill()
++			 * failed. Stop here instead of BUG(); ag71xx_poll() then
++			 * takes its out-of-memory path and retries the refill
++			 * from oom_timer.
++			 */
++			net_warn_ratelimited("%s: RX ring exhausted, waiting for refill
++",
++					     dev->name);
+ 			break;
+ 		}
+ 
