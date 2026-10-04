@@ -2,7 +2,11 @@ D-Link AQUILA PRO AI M30/M60 A1: MAC aus Odm per Layout-Parser statt fester Zell
 
 Device Tree M30 und M60: nvmem-layout "dlink,odm-layout" statt
 fixed-layout mit macaddr@81 (reg <0x81 0x6>). Kernel-Konfiguration filogic:
-den Parser (CONFIG_NVMEM_LAYOUT_DLINK_ODM) fest einbauen. M30: phy1 bekam
+den Parser (CONFIG_NVMEM_LAYOUT_DLINK_ODM) fest einbauen; mt7622, mt7623,
+mt7629: ausdruecklich abwaehlen, sonst fragt kconfig dort nach dem neuen
+Symbol und der Bau bricht ab (der Kernel-Patch gilt fuer alle
+mediatek-Subtargets, NVMEM_LAYOUTS ist dort an; zuerst gesehen im Bau
+mediatek-mt7622 am 04.10.2026). M30: phy1 bekam
 seine MAC per Hotplug fest aus Odm 0x81 (Basis +3); jetzt phy0 (Basis +2,
 aus dem Parser) plus 1, gleicher Wert ohne festen Offset. Der Parser selbst
 kommt als Kernel-Patch 451-nvmem-add-layout-for-D-Link-Odm.patch.
@@ -76,5 +80,38 @@ diff -ru a/target/linux/mediatek/filogic/config-6.6 b/target/linux/mediatek/filo
  CONFIG_NVMEM_LAYOUT_ADTRAN=y
 +CONFIG_NVMEM_LAYOUT_DLINK_ODM=y
  CONFIG_NVMEM_MTK_EFUSE=y
+ CONFIG_NVMEM_SYSFS=y
+ CONFIG_OF=y
+diff -ru a/target/linux/mediatek/mt7622/config-6.6 b/target/linux/mediatek/mt7622/config-6.6
+--- a/target/linux/mediatek/mt7622/config-6.6
++++ b/target/linux/mediatek/mt7622/config-6.6
+@@ -317,6 +317,7 @@
+ CONFIG_NVMEM_BLOCK=y
+ CONFIG_NVMEM_LAYOUTS=y
+ CONFIG_NVMEM_LAYOUT_ADTRAN=y
++# CONFIG_NVMEM_LAYOUT_DLINK_ODM is not set
+ CONFIG_NVMEM_MTK_EFUSE=y
+ CONFIG_NVMEM_SYSFS=y
+ CONFIG_OF=y
+diff -ru a/target/linux/mediatek/mt7623/config-6.6 b/target/linux/mediatek/mt7623/config-6.6
+--- a/target/linux/mediatek/mt7623/config-6.6
++++ b/target/linux/mediatek/mt7623/config-6.6
+@@ -425,6 +425,7 @@
+ CONFIG_NVMEM=y
+ CONFIG_NVMEM_LAYOUTS=y
+ # CONFIG_NVMEM_LAYOUT_ADTRAN is not set
++# CONFIG_NVMEM_LAYOUT_DLINK_ODM is not set
+ CONFIG_NVMEM_MTK_EFUSE=y
+ # CONFIG_NVMEM_SPMI_SDAM is not set
+ CONFIG_NVMEM_SYSFS=y
+diff -ru a/target/linux/mediatek/mt7629/config-6.6 b/target/linux/mediatek/mt7629/config-6.6
+--- a/target/linux/mediatek/mt7629/config-6.6
++++ b/target/linux/mediatek/mt7629/config-6.6
+@@ -239,6 +239,7 @@
+ CONFIG_NVMEM=y
+ CONFIG_NVMEM_LAYOUTS=y
+ # CONFIG_NVMEM_LAYOUT_ADTRAN is not set
++# CONFIG_NVMEM_LAYOUT_DLINK_ODM is not set
+ # CONFIG_NVMEM_MTK_EFUSE is not set
  CONFIG_NVMEM_SYSFS=y
  CONFIG_OF=y
