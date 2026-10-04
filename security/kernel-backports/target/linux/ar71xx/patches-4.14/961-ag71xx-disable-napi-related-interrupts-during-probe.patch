@@ -1,0 +1,99 @@
+From ac4a21141a0e091ff1e5f8e1f03dded082582f37 Mon Sep 17 00:00:00 2001
+From: Sven Eckelmann <sven@narfation.org>
+Date: Sat, 23 Oct 2021 11:27:35 +0200
+Subject: [PATCH] ath79: ag71xx: Disable napi related interrupts during probe
+
+[ OpenWrt commit ac4a21141a0e091ff1e5f8e1f03dded082582f37 (target ath79) ]
+
+ag71xx_probe is registering ag71xx_interrupt as handler for the gmac0/gmac1
+interrupts. The handler is trying to use napi_schedule to handle the
+processing of packets. But the netif_napi_add for this device is
+called a lot later in ag71xx_probe.
+
+It can therefore happen that a still running gmac0/gmac1 is triggering the
+interrupt handler with a bit from AG71XX_INT_POLL set in
+AG71XX_REG_INT_STATUS. The handler will then call napi_schedule and the
+napi code will crash the system because the ag->napi is not yet
+initialized:
+
+  libphy: Fixed MDIO Bus: probed
+  CPU 0 Unable to handle kernel paging request at virtual address 00000000, epc == 00000000, ra == 81373408
+  Oops[#1]:
+  CPU: 0 PID: 1 Comm: swapper Not tainted 5.4.152 #0
+  $ 0   : 00000000 00000001 00000000 8280bf28
+  $ 4   : 82a98cb0 00000000 81620000 00200140
+  $ 8   : 00000000 00000000 74657272 7570743a
+  $12   : 0000005b 8280bdb9 ffffffff ffffffff
+  $16   : 00000001 82a98cb0 00000000 8280bf27
+  $20   : 8280bf28 81620000 ffff8b00 8280bf30
+  $24   : 00000000 8125af9c
+  $28   : 82828000 8280bed8 81610000 81373408
+  Hi    : 00005fff
+  Lo    : 2e48f657
+  epc   : 00000000 0x0
+  ra    : 81373408 __napi_poll+0x3c/0x11c
+  Status: 1100dc03 KERNEL EXL IE
+  Cause : 00800008 (ExcCode 02)
+  BadVA : 00000000
+  PrId  : 00019750 (MIPS 74Kc)
+  Modules linked in:
+  Process swapper (pid: 1, threadinfo=(ptrval), task=(ptrval), tls=00000000)
+  Stack : ffff8afb ffff8afa 81620000 00200140 00000000 82a98cb0 00000008 0000012c
+          81625620 81373684 ffffffff ffffffff ffffffef 00000008 816153d8 81620000
+          815b0d60 815bbd54 00000000 81753700 8280bf28 8280bf28 8280bf30 8280bf30
+          81753748 00000008 00000003 00000004 0000000c 00000100 3fffffff 8175373c
+          816059f0 814ddb48 00000001 8160ab30 81615488 810618bc 00000006 00000000
+          ...
+  Call Trace:
+
+  [<81373684>] net_rx_action+0xfc/0x26c
+  [<814ddb48>] __do_softirq+0x118/0x2ec
+  [<810618bc>] handle_percpu_irq+0x50/0x80
+  [<8125ab8c>] plat_irq_dispatch+0x94/0xc8
+  [<81004e98>] handle_int+0x138/0x144
+
+  Code: (Bad address in epc)
+
+  ---[ end trace a60d797432b656b2 ]---
+
+The gmcc0/gmac1 must be brought in a state in which it doesn't signal a
+AG71XX_INT_POLL related status bits as interrupt before registering the
+interrupt handler. ag71xx_hw_start will take care of re-initializing the
+AG71XX_REG_INT_ENABLE.
+
+Fixes: f529a3742043 ("surprise :p")
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+
+[ Neanderfunk port to the ar71xx ag71xx driver of OpenWrt 19.07
+  (target/linux/ar71xx/files/drivers/net/ethernet/atheros/ag71xx/), Linux
+  4.14.275, Gluon v2021.1:
+  - Same pattern in ar71xx: ag71xx_probe() calls devm_request_irq() long
+    before netif_napi_add(). The ath79 fix is ported 1:1 to the same spot
+    (after the mac_base ioremap, before platform_get_irq()). The request_irq
+    call itself is not moved, as in upstream.
+  - Path relative to the kernel root, like the other ag71xx patches in
+    patches-4.14 (the files/ tree is copied into the kernel before patching).
+  - Note: unlike ath79, the ar71xx platform code (ath79_register_eth() in
+    arch/mips/ath79/dev-eth.c) asserts and releases the GMAC reset right
+    before platform_device_register(), so a GMAC left running by the
+    bootloader should already be quiet here. This patch is a cheap
+    safeguard for the case that the interrupt enable bits survive. ]
+---
+ drivers/net/ethernet/atheros/ag71xx/ag71xx_main.c |    6 ++++++
+ 1 file changed, 6 insertions(+)
+
+--- a/drivers/net/ethernet/atheros/ag71xx/ag71xx_main.c
++++ b/drivers/net/ethernet/atheros/ag71xx/ag71xx_main.c
+@@ -1352,6 +1352,12 @@ static int ag71xx_probe(struct platform_
+ 	if (!ag->mac_base)
+ 		return -ENOMEM;
+ 
++	/* ensure that HW is in manual polling mode before interrupts are
++	 * activated. Otherwise ag71xx_interrupt might call napi_schedule
++	 * before it is initialized by netif_napi_add.
++	 */
++	ag71xx_int_disable(ag, AG71XX_INT_POLL);
++
+ 	dev->irq = platform_get_irq(pdev, 0);
+ 	err = devm_request_irq(&pdev->dev, dev->irq, ag71xx_interrupt,
+ 			       0x0, dev_name(&pdev->dev), dev);

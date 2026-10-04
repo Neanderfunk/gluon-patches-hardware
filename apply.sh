@@ -32,6 +32,7 @@ PRE_UPDATE=(
 POST_UPDATE=(
   kernel/ag71xx-rx-ring-no-bug.sh               # ag71xx (ar71xx): kein BUG() bei leerem RX-Ring
   kernel/ath9k-rxbuf-128.sh                     # ath9k: Empfangspuffer 128 statt 256 (~0,7 MB RAM)
+  security/kernel-backports.sh                  # Kernel/mac80211: Mesh-CSA, PREQ-Leak, zsmalloc, l2tp, ag71xx probe
 )
 
 PHASE="${1:-}"

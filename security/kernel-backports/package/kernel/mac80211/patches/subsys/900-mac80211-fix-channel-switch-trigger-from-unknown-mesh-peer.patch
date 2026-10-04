@@ -1,0 +1,68 @@
+From 93e2d04a1888668183f3fb48666e90b9b31d29e6 Mon Sep 17 00:00:00 2001
+From: Tamizh chelvam <tamizhr@codeaurora.org>
+Date: Sat, 28 Mar 2020 19:23:24 +0530
+Subject: [PATCH] mac80211: fix channel switch trigger from unknown mesh peer
+
+[ Upstream commit 93e2d04a1888668183f3fb48666e90b9b31d29e6 ]
+
+Previously mesh channel switch happens if beacon contains
+CSA IE without checking the mesh peer info. Due to that
+channel switch happens even if the beacon is not from
+its own mesh peer. Fixing that by checking if the CSA
+originated from the same mesh network before proceeding
+for channel switch.
+
+Signed-off-by: Tamizh chelvam <tamizhr@codeaurora.org>
+Link: https://lore.kernel.org/r/1585403604-29274-1-git-send-email-tamizhr@codeaurora.org
+Signed-off-by: Johannes Berg <johannes.berg@intel.com>
+
+[ Neanderfunk backport to backports-4.19.237-1 (OpenWrt 19.07, Gluon v2021.1):
+  Not part of linux-4.19.y (first released in v5.7). Hand port, same logic:
+  - ieee80211_mesh_rx_bcn_presp(): in 4.19 mesh_neighbour_update() has no
+    rx_status argument, so the context of the first hunk differs. The moved
+    block itself is unchanged.
+  - mesh_rx_csa_frame(): 4.19 parses into a struct on the stack and
+    ieee802_11_parse_elems() takes no bssid argument, hence "&elems" and the
+    shorter call in the context.
+  This patch makes mesh_rx_csa_frame() call mesh_matches_local() on the
+  elements of an unauthenticated action frame. Apply it only together with
+  the following backports of 017c17925250 (CVE-2026-23279) and c73bb9a2d33b
+  (CVE-2026-23396), otherwise a frame with Mesh ID but without Mesh
+  Configuration IE dereferences NULL in mesh_matches_local(). ]
+---
+ net/mac80211/mesh.c |   11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/net/mac80211/mesh.c b/net/mac80211/mesh.c
+--- a/net/mac80211/mesh.c
++++ b/net/mac80211/mesh.c
+@@ -1190,15 +1190,15 @@ static void ieee80211_mesh_rx_bcn_presp(struct ieee80211_sub_if_data *sdata,
+ 		    sdata->u.mesh.mshcfg.rssi_threshold == 0 ||
+ 		    sdata->u.mesh.mshcfg.rssi_threshold < rx_status->signal)
+ 			mesh_neighbour_update(sdata, mgmt->sa, &elems);
++
++		if (ifmsh->csa_role != IEEE80211_MESH_CSA_ROLE_INIT &&
++		    !sdata->vif.csa_active)
++			ieee80211_mesh_process_chnswitch(sdata, &elems, true);
+ 	}
+ 
+ 	if (ifmsh->sync_ops)
+ 		ifmsh->sync_ops->rx_bcn_presp(sdata,
+ 			stype, mgmt, &elems, rx_status);
+-
+-	if (ifmsh->csa_role != IEEE80211_MESH_CSA_ROLE_INIT &&
+-	    !sdata->vif.csa_active)
+-		ieee80211_mesh_process_chnswitch(sdata, &elems, true);
+ }
+ 
+ int ieee80211_mesh_finish_csa(struct ieee80211_sub_if_data *sdata)
+@@ -1305,6 +1305,9 @@ static void mesh_rx_csa_frame(struct ieee80211_sub_if_data *sdata,
+ 			   u.action.u.chan_switch.variable);
+ 	ieee802_11_parse_elems(pos, len - baselen, true, &elems);
+ 
++	if (!mesh_matches_local(sdata, &elems))
++		return;
++
+ 	ifmsh->chsw_ttl = elems.mesh_chansw_params_ie->mesh_ttl;
+ 	if (!--ifmsh->chsw_ttl)
+ 		fwd_csa = false;
