@@ -17,7 +17,7 @@ Signed-off-by: Freifunk im Neanderland <projekt@neanderfunk.de>
 ---
 --- a/drivers/net/ethernet/atheros/ag71xx/ag71xx_main.c
 +++ b/drivers/net/ethernet/atheros/ag71xx/ag71xx_main.c
-@@ -1091,7 +1091,15 @@
+@@ -1091,7 +1091,14 @@
  			break;
  
  		if ((ring->dirty + ring_size) == ring->curr) {
@@ -28,8 +28,7 @@ Signed-off-by: Freifunk im Neanderland <projekt@neanderfunk.de>
 +			 * takes its out-of-memory path and retries the refill
 +			 * from oom_timer.
 +			 */
-+			net_warn_ratelimited("%s: RX ring exhausted, waiting for refill
-+",
++			net_warn_ratelimited("%s: RX ring exhausted, waiting for refill\n",
 +					     dev->name);
  			break;
  		}
