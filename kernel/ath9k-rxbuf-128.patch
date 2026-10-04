@@ -1,0 +1,25 @@
+mac80211/ath9k: Empfangspuffer 128 statt 256 (Sackgasse, 4/32).
+
+OpenWrt 19.07 senkt ATH_RXBUF schon von 512 auf 256 (511-ath9k_reduce_rxbuf).
+Am WR841N v9 (24111111sta, Packages-Session 04.10.2026) belegt der Treiber
+damit trotzdem ~1,55 MB schon beim Laden (MemAvailable 10852 KB ohne ath9k,
+9296 KB mit ath9k bei WLAN aus), zusammen mit hostapd ~1,8 MB von 27 MB.
+Die Empfangspuffer sind der Loewenanteil. 128 statt 256 spart grob
+0,7-0,8 MB; auf 4/32 kommt das dem Fragment-Cache der 1-MiB-squashfs-Bloecke
+zugute. Entscheidung adorfer: WLAN-Puffer kleiner.
+
+Risiko: bei Empfangsspitzen frueher RX-Ueberlauf, also verworfene Frames und
+Neuuebertragungen, kein Absturz. Am Testgeraet und ueber neanderfunk-respondd
+(mem_available) beobachten. Gilt fuer alle ar71xx-Geraete der Sackgasse.
+
+--- a/package/kernel/mac80211/patches/ath/511-ath9k_reduce_rxbuf.patch
++++ b/package/kernel/mac80211/patches/ath/511-ath9k_reduce_rxbuf.patch
+@@ -5,7 +5,7 @@
+  	} while (0)
+  
+ -#define ATH_RXBUF               512
+-+#define ATH_RXBUF               256
+++#define ATH_RXBUF               128
+  #define ATH_TXBUF               512
+  #define ATH_TXBUF_RESERVE       5
+  #define ATH_TXMAXTRY            13
