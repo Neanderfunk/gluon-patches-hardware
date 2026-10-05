@@ -50,6 +50,7 @@ machen weiter. Scheitert einer, brechen sie mit Fehler ab.
 | `device-fixes/fix-xiaomi-ax6s-bootflags.sh` | post-update | Xiaomi Redmi AX6S: Boot-Flags bestätigen, kein Rückfall auf Stock | |
 | `device-fixes/fix-xiaomi-ax6s-compat-version.sh` | post-update | Xiaomi Redmi AX6S: `board.d/05_compat-version` setzt bei der Erstinstallation `compat_version` 2.0 (wie OpenWrt beim E8450 UBI); sonst steht ein per factory.bin umgestellter Knoten auf 1.0 und bekommt kein Update mehr | |
 | `targets/additionaltargets.sh` | post-update | zusätzliche Targets und Geräte aus OpenWrt, die Gluon 2025.1 nicht baut; ipq807x heißt jetzt `qualcommax-ipq807x`. Seit 01.10.2026 auch GL-MT6000, RT-AX59U, WR3000P v1 (filogic) und EAP613 v1 (mt7621), deren Profile OpenWrt 24.10 schon hat | |
+| `targets/x86-mbr-sysupgrade.sh` | post-update | x86-generic, -legacy, -64: zusätzlich das MBR-Image (OpenWrt `-squashfs-combined`, Bootpartition ext4) als `images/other/...-mbr-sysupgrade.img.gz`. Für alte x86-Knoten bis Gluon 2021.1, die beim Sprung auf das EFI-Image ihre Konfiguration verlieren (Gluon #2967); Ablauf in router-werkstatt `docs/howto-x86-altknoten-2025.md` | |
 | `devices/add-cellular.sh` | post-update | Mobilfunkgerät ZTE MF286R | |
 | `network/interfaces-patch.sh` | post-update | primäre MACs und Schnittstellenzuordnung für die zusätzlichen Geräte | |
 | `kernel/rtl8221b-skip-mmd30.sh` | post-update | beim PHY-Scan MMD 30 des RTL8221B nicht lesen; sonst ist der 2,5G-Port tot, wenn beim Booten ein Kabel steckt (Cudy TR3000/WR3000H) | Backport OpenWrt 88dcd8c |

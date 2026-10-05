@@ -1,0 +1,35 @@
+diff --git a/targets/x86-64 b/targets/x86-64
+index 288e3d50..fc6bc89d 100644
+--- a/targets/x86-64
++++ b/targets/x86-64
+@@ -10,5 +10,6 @@ device('x86-64', 'generic', {
+ 	extra_images = {
+ 		{'-kernel', '-kernel', '.bin'},
+ 		{'-squashfs-rootfs', '-rootfs', '.img.gz'},
++		{'-squashfs-combined', '-mbr-sysupgrade', '.img.gz'},
+ 	},
+ })
+diff --git a/targets/x86-generic b/targets/x86-generic
+index 57fce8a8..222cb50a 100644
+--- a/targets/x86-generic
++++ b/targets/x86-generic
+@@ -10,5 +10,6 @@ device('x86-generic', 'generic', {
+ 	extra_images = {
+ 		{'-kernel', '-kernel', '.bin'},
+ 		{'-squashfs-rootfs', '-rootfs', '.img.gz'},
++		{'-squashfs-combined', '-mbr-sysupgrade', '.img.gz'},
+ 	},
+ })
+diff --git a/targets/x86-legacy b/targets/x86-legacy
+index 402d7e21..ae936e57 100644
+--- a/targets/x86-legacy
++++ b/targets/x86-legacy
+@@ -1,3 +1,7 @@
+ include 'x86.inc'
+ 
+-device('x86-legacy', 'generic')
++device('x86-legacy', 'generic', {
++	extra_images = {
++		{'-squashfs-combined', '-mbr-sysupgrade', '.img.gz'},
++	},
++})
