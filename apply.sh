@@ -48,6 +48,7 @@ POST_UPDATE=(
   device-fixes/fix-xiaomi-ax6s-bootflags.sh   # Xiaomi Redmi AX6S: Boot-Flags bestaetigen
   device-fixes/fix-xiaomi-ax6s-compat-version.sh # Xiaomi Redmi AX6S: compat_version 2.0 bei Erstinstallation
   targets/additionaltargets.sh                # zusaetzliche Targets und Geraete aus OpenWrt
+  devices/erx-ka-imagename.sh                 # EdgeRouter X/X-SFP: Imagename -ka (nach additionaltargets, dessen Patch die alten Zeilen als Kontext hat)
   targets/x86-mbr-sysupgrade.sh               # x86: MBR-Image fuer alte Knoten bis Gluon 2021.1
   devices/aruba-ap-32x/targets.sh             # Gluon-Eintraege der OpenWrt-Backports oben
   devices/zyxel-nwa90ax/targets.sh
