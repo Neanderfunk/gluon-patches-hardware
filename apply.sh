@@ -34,6 +34,7 @@ PRE_UPDATE=(
   devices/tplink-eap620-hd-v1/openwrt.sh      # TP-Link EAP620 HD v1 (qualcommax, aus 25.12)
   devices/cudy-m3000-v2-yt8821/openwrt.sh     # Cudy M3000 v2 mit YT8821 (aus 25.12)
   kernel/mt7915-ps-aql/openwrt.sh             # mt7915/mt798x Power-Save/AQL aus Gluon main (#3673), ersetzt Gluons 0012
+  kernel/mt76x02-thermal/openwrt.sh           # TEST: MT7610E/MT7612E-Temperatur als Thermal-Zone (Test, Rueckrollen nach dem Test moeglich)
 )
 
 # Reihenfolge wie im Neanderfunk-Bau. Die Skripte sind voneinander
@@ -61,6 +62,7 @@ POST_UPDATE=(
   kernel/rtl8221b-skip-mmd30.sh               # RTL8221B: MMD 30 beim PHY-Scan auslassen
   kernel/mt7530-phy-disable-eee.sh            # MT7530-PHY: EEE aus
   kernel/ag71xx-rx-ring-no-bug.sh             # ag71xx: kein BUG() bei leerem RX-Ring
+  targets/ath10k-thermal.sh                   # TEST: ATH10K_THERMAL (Test, Rueckrollen nach dem Test moeglich)
 )
 
 PHASE="${1:-}"

@@ -1,0 +1,193 @@
+From 64f26b798af3c01cb5dd74d5c5692e70532d306d Mon Sep 17 00:00:00 2001
+From: Neanderfunk <projekt@neanderfunk.de>
+Date: Sat, 10 Oct 2026 21:00:00 +0200
+Subject: [PATCH] mt76: mt76x02: expose chip temperature as thermal zone (Test)
+
+Paket-Patch 900 fuer mt76 2025.11.06~eb567bc7: MT7610E/MT7612E melden
+ihre Chiptemperatur als Thermal-Zone mt76x0_phyN/mt76x2_phyN.
+Testpin, Rueckrollen nach dem Test moeglich.
+---
+ ...2-expose-temperature-as-thermal-zone.patch | 171 ++++++++++++++++++
+ 1 file changed, 171 insertions(+)
+ create mode 100644 package/kernel/mt76/patches/900-wifi-mt76-mt76x02-expose-temperature-as-thermal-zone.patch
+
+diff --git a/package/kernel/mt76/patches/900-wifi-mt76-mt76x02-expose-temperature-as-thermal-zone.patch b/package/kernel/mt76/patches/900-wifi-mt76-mt76x02-expose-temperature-as-thermal-zone.patch
+new file mode 100644
+index 0000000..4c0873b
+--- /dev/null
++++ b/package/kernel/mt76/patches/900-wifi-mt76-mt76x02-expose-temperature-as-thermal-zone.patch
+@@ -0,0 +1,171 @@
++From: Neanderfunk <projekt@neanderfunk.de>
++Date: Sat, 10 Oct 2026 21:00:00 +0200
++Subject: [PATCH] wifi: mt76: mt76x02: expose chip temperature as thermal zone
++
++mt76x0 (every 4 s) and mt76x2 (every second) read their on-chip sensor
++in the calibration work, but never expose it. mt76x0 only keeps the
++value when it moved by more than 30 degrees (it is a recalibration
++trigger), so debugfs "temperature" is useless as a reading.
++mt76x2 only reads it when the EEPROM enables temperature TX ALC and
++an external PA (mt76x2_get_temp_comp); other boards get no reading.
++
++Keep the last reading in cal.temp_now and register a trip-less thermal
++zone "mt76x0_phyN" / "mt76x2_phyN" for the PCIe variants. Nothing polls
++it; the value is the cached one from the calibration work and -EAGAIN is
++returned while the radio is down or no reading exists yet (mt76x0 with
++TSSI enabled does not use the sensor path).
++
++A thermal zone instead of hwmon because CONFIG_THERMAL is built in on
++the ramips targets, while hwmon would need kmod-hwmon-core on 64 MB
++devices.
++
++Signed-off-by: Neanderfunk <projekt@neanderfunk.de>
++---
++--- a/mt76x0/pci.c
+++++ b/mt76x0/pci.c
++@@ -146,6 +146,7 @@
++ 		return err;
++ 
++ 	set_bit(MT76_STATE_INITIALIZED, &dev->mphy.state);
+++	mt76x02_thermal_register(dev, "mt76x0");
++ 
++ 	return 0;
++ }
++@@ -237,6 +238,7 @@
++ 	struct mt76_dev *mdev = pci_get_drvdata(pdev);
++ 	struct mt76x02_dev *dev = container_of(mdev, struct mt76x02_dev, mt76);
++ 
+++	mt76x02_thermal_unregister(dev);
++ 	mt76_unregister_device(mdev);
++ 	mt76x0e_cleanup(dev);
++ 	mt76_free_device(mdev);
++--- a/mt76x0/phy.c
+++++ b/mt76x0/phy.c
++@@ -1036,6 +1036,8 @@
++ 
++ 	val = mt76_rr(dev, MT_BBP(CORE, 35));
++ 	val = (35 * (val - dev->cal.rx.temp_offset)) / 10 + 25;
+++	dev->cal.temp_now = val;
+++	dev->cal.temp_now_valid = true;
++ 
++ 	if (abs(val - dev->cal.temp_vco) > 20) {
++ 		mt76x02_mcu_calibrate(dev, MCU_CAL_VCO,
++--- a/mt76x02.h
+++++ b/mt76x02.h
++@@ -8,6 +8,7 @@
++ #define __MT76x02_H
++ 
++ #include <linux/kfifo.h>
+++#include <linux/thermal.h>
++ 
++ #include "mt76.h"
++ #include "mt76x02_regs.h"
++@@ -49,6 +50,10 @@
++ 	s8 temp_vco;
++ 	s8 temp;
++ 
+++	/* last sensor reading, for the thermal zone */
+++	s8 temp_now;
+++	bool temp_now_valid;
+++
++ 	bool init_cal_done;
++ 	bool tssi_cal_done;
++ 	bool tssi_comp_pending;
++@@ -123,6 +128,8 @@
++ 
++ 	struct mt76x02_calibration cal;
++ 
+++	struct thermal_zone_device *tz;
+++
++ 	int txpower_conf;
++ 	s8 target_power;
++ 	s8 target_power_delta[2];
++@@ -223,6 +230,8 @@
++ void mt76x02_mac_start(struct mt76x02_dev *dev);
++ 
++ void mt76x02_init_debugfs(struct mt76x02_dev *dev);
+++void mt76x02_thermal_register(struct mt76x02_dev *dev, const char *prefix);
+++void mt76x02_thermal_unregister(struct mt76x02_dev *dev);
++ 
++ static inline bool is_mt76x0(struct mt76x02_dev *dev)
++ {
++--- a/mt76x02_util.c
+++++ b/mt76x02_util.c
++@@ -695,5 +695,46 @@
++ }
++ EXPORT_SYMBOL_GPL(mt76x02_config_mac_addr_list);
++ 
+++static int mt76x02_thermal_get_temp(struct thermal_zone_device *tz, int *temp)
+++{
+++	struct mt76x02_dev *dev = thermal_zone_device_priv(tz);
+++
+++	/* the sensor is only read by the calibration work */
+++	if (!test_bit(MT76_STATE_RUNNING, &dev->mphy.state) ||
+++	    !dev->cal.temp_now_valid)
+++		return -EAGAIN;
+++
+++	*temp = dev->cal.temp_now * 1000;
+++
+++	return 0;
+++}
+++
+++static struct thermal_zone_device_ops mt76x02_thermal_ops = {
+++	.get_temp = mt76x02_thermal_get_temp,
+++};
+++
+++void mt76x02_thermal_register(struct mt76x02_dev *dev, const char *prefix)
+++{
+++	char type[THERMAL_NAME_LENGTH];
+++	struct thermal_zone_device *tz;
+++
+++	snprintf(type, sizeof(type), "%s_%s", prefix,
+++		 wiphy_name(dev->mt76.hw->wiphy));
+++	tz = thermal_tripless_zone_device_register(type, dev,
+++						   &mt76x02_thermal_ops, NULL);
+++	dev->tz = IS_ERR(tz) ? NULL : tz;
+++}
+++EXPORT_SYMBOL_GPL(mt76x02_thermal_register);
+++
+++void mt76x02_thermal_unregister(struct mt76x02_dev *dev)
+++{
+++	if (!dev->tz)
+++		return;
+++
+++	thermal_zone_device_unregister(dev->tz);
+++	dev->tz = NULL;
+++}
+++EXPORT_SYMBOL_GPL(mt76x02_thermal_unregister);
+++
++ MODULE_DESCRIPTION("MediaTek MT76x02 helpers");
++ MODULE_LICENSE("Dual BSD/GPL");
++--- a/mt76x2/pci.c
+++++ b/mt76x2/pci.c
++@@ -103,6 +103,7 @@
++ 	struct mt76_dev *mdev = pci_get_drvdata(pdev);
++ 	struct mt76x02_dev *dev = container_of(mdev, struct mt76x02_dev, mt76);
++ 
+++	mt76x02_thermal_unregister(dev);
++ 	mt76_unregister_device(mdev);
++ 	mt76x2_cleanup(dev);
++ 	mt76_free_device(mdev);
++--- a/mt76x2/pci_init.c
+++++ b/mt76x2/pci_init.c
++@@ -310,6 +310,7 @@
++ 	mt76x02_init_debugfs(dev);
++ 	mt76x2_init_txpower(dev, &dev->mphy.sband_2g.sband);
++ 	mt76x2_init_txpower(dev, &dev->mphy.sband_5g.sband);
+++	mt76x02_thermal_register(dev, "mt76x2");
++ 
++ 	return 0;
++ 
++--- a/mt76x2/pci_phy.c
+++++ b/mt76x2/pci_phy.c
++@@ -263,6 +263,8 @@
++ 	temp -= t.temp_25_ref;
++ 	temp = (temp * 1789) / 1000 + 25;
++ 	dev->cal.temp = temp;
+++	dev->cal.temp_now = temp;
+++	dev->cal.temp_now_valid = true;
++ 
++ 	if (temp > 25)
++ 		db_diff = (temp - 25) / t.high_slope;
+-- 
+2.53.0
+

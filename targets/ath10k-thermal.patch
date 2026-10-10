@@ -1,0 +1,10 @@
+--- a/targets/generic
++++ b/targets/generic
+@@ -46,6 +46,7 @@
+ try_config('PACKAGE_kmod-pf-ring', false) -- fails to build
+ 
+ try_config('PACKAGE_ATH_DEBUG', true)
++try_config('ATH10K_THERMAL', true) -- Neanderfunk-Test: ath10k-Temperatur (hwmon/thermal)
+ 
+ try_config('PACKAGE_dnsmasq_full_dhcpv6', false)
+ try_config('PACKAGE_dnsmasq_full_auth', false)
