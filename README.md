@@ -40,6 +40,7 @@ machen weiter. Scheitert einer, brechen sie mit Fehler ab.
 | --- | --- | --- | --- |
 | `devices/<geraet>/openwrt.sh` | pre-update | OpenWrt-Backports aus 25.12 fuer neue Geraete: Aruba AP-324/325, Zyxel NWA90AX und NWA90AX Pro, Cudy AP3000 Wall v1, Cudy WR3000U v1, TP-Link EAP620 HD v1, Cudy M3000 v2 mit YT8821. Legt die Commits als `patches/openwrt/5x00-hw-<geraet>-*.patch` ab, `make update` spielt sie per `git am` ein | Original-Commits mit Autor und Signed-off-by; Uebersicht `devices/neue-geraete-2026-10.md`, je Geraet `devices/<geraet>/README.md` |
 | `kernel/mt7915-ps-aql/openwrt.sh` | pre-update | mt7915/mt798x: Power-Save-/AQL-Satz aus Gluon main (PR #3673, Merge `2bfae3d6`): legt die sechs Gluon-Patches 0013-0018 als `patches/openwrt/5150-hw-mt7915-ps-aql-*.patch` ab und entfernt Gluons `0012-mt7915-detect-and-purge-stuck-PLE-queues.patch` (dort per Revert ersetzt). Gegen openwrt/mt76#1009 (TX-Stillstand bei Clients im Power-Save) | Original-Patches von David Bauer u. a., unveraendert |
+| `kernel/mt76x02-thermal/openwrt.sh` | pre-update | **Test (10.10.2026):** MT7610E/MT7612E melden ihre Chiptemperatur als Thermal-Zone `mt76x0_phyN`/`mt76x2_phyN` (mt76-Paketpatch 900, als `patches/openwrt/5160-hw-mt76x02-thermal-*.patch`). Wird nach dem Test an C20i/Mi4A behalten oder zurückgerollt | Neanderfunk |
 | `devices/<geraet>/targets.sh` | post-update | Gluon-Eintrag der Backports darueber; prueft vorher, dass die OpenWrt-Seite im Baum steht | |
 | `devices/zbit-zb25vq128.sh` | post-update | Kernel-Patch für den Zbit-ZB25VQ128-Flash (Totolink X5000R ab 2022); das Gerät kennt Gluon 2025.1, die Flash-ID der Kernel nicht | Daniel Palmer 2021, nie gemerged; auf 6.6 portiert, Kompilieren und Gerät ungetestet |
 | `devices/add-nanopi-r2c.sh` | post-update | FriendlyElec NanoPi R2C | |
@@ -57,6 +58,7 @@ machen weiter. Scheitert einer, brechen sie mit Fehler ab.
 | `kernel/rtl8221b-skip-mmd30.sh` | post-update | beim PHY-Scan MMD 30 des RTL8221B nicht lesen; sonst ist der 2,5G-Port tot, wenn beim Booten ein Kabel steckt (Cudy TR3000/WR3000H) | Backport OpenWrt 88dcd8c |
 | `kernel/mt7530-phy-disable-eee.sh` | post-update | EEE am MT7530-PHY aus (Switch des MT7621); unter 6.6 als Target-Patch von ramips, weil mediatek die Datei selbst umbaut | Nachbau OpenWrt PR #25058 |
 | `kernel/ag71xx-rx-ring-no-bug.sh` | post-update | ag71xx: kein `BUG()` bei leerem RX-Ring (RAM-Druck) | |
+| `targets/ath10k-thermal.sh` | post-update | **Test (10.10.2026):** `try_config('ATH10K_THERMAL', true)` in `targets/generic`: ath10k-Temperatur über hwmon/thermal, zieht `kmod-hwmon-core` und `kmod-thermal` ins Image. Wird nach dem Test (Flash C25, RAM 64 MB) behalten oder zurückgerollt | |
 
 Nicht angewendet:
 
