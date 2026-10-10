@@ -88,7 +88,7 @@ apply_patch "$PATCH_DIR/targets-ramips-mt7621.patch" \
 # Laeuft nach devices/add-cudy-3000.sh, der Patch ist gegen dessen Stand
 # erzeugt. Upstream-Namen, damit der Patch entfaellt, sobald Gluon die Geraete
 # selbst fuehrt.
-echo "- ASUS RT-AX59U, Cudy WR3000P v1, GL.iNet GL-MT6000"
+echo "- ASUS RT-AX59U, Cudy WR3000P v1, GL.iNet GL-MT6000, Mercusys MR80X v3"
 apply_patch "$PATCH_DIR/targets-mediatek-filogic.patch" \
   "targets/mediatek-filogic" \
-  'glinet_gl-mt6000'
+  'mercusys_mr80x-v3'

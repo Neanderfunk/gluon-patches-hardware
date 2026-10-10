@@ -1,5 +1,5 @@
 diff --git a/targets/mediatek-filogic b/targets/mediatek-filogic
-index f01e809b..b6608c5b 100644
+index f01e809..2e23609 100644
 --- a/targets/mediatek-filogic
 +++ b/targets/mediatek-filogic
 @@ -7,6 +7,10 @@ device('asus-rt-ax52', 'asus_rt-ax52', {
@@ -24,7 +24,7 @@ index f01e809b..b6608c5b 100644
  device('cudy-wr3000s-v1', 'cudy_wr3000s-v1', {
  	factory = false,
  })
-@@ -85,6 +93,10 @@ device('gl.inet-gl-mt3000', 'glinet_gl-mt3000', {
+@@ -85,9 +93,17 @@ device('gl.inet-gl-mt3000', 'glinet_gl-mt3000', {
  	factory = false,
  })
  
@@ -35,3 +35,10 @@ index f01e809b..b6608c5b 100644
  
  -- Mercusys
  
++device('mercusys-mr80x-v3', 'mercusys_mr80x-v3', {
++	factory = false,
++})
++
+ device('mercusys-mr90x-v1', 'mercusys_mr90x-v1', {
+ 	factory = false,
+ })
