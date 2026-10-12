@@ -60,6 +60,7 @@ POST_UPDATE=(
   devices/add-cellular.sh                     # ZTE MF286R
   network/interfaces-patch.sh                 # primaere MACs und Schnittstellen der zusaetzlichen Geraete
   kernel/rtl8221b-skip-mmd30.sh               # RTL8221B: MMD 30 beim PHY-Scan auslassen
+  kernel/mtk-eth-small-frag.sh                # TEST: mtk_eth_soc kleine Fragmente auch ab netsys v2 (MediaTek 241d864)
   kernel/mt7530-phy-disable-eee.sh            # MT7530-PHY: EEE aus
   kernel/ag71xx-rx-ring-no-bug.sh             # ag71xx: kein BUG() bei leerem RX-Ring
   targets/ath10k-thermal.sh                   # TEST: ATH10K_THERMAL (Test, Rueckrollen nach dem Test moeglich)

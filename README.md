@@ -58,6 +58,7 @@ machen weiter. Scheitert einer, brechen sie mit Fehler ab.
 | `kernel/rtl8221b-skip-mmd30.sh` | post-update | beim PHY-Scan MMD 30 des RTL8221B nicht lesen; sonst ist der 2,5G-Port tot, wenn beim Booten ein Kabel steckt (Cudy TR3000/WR3000H) | Backport OpenWrt 88dcd8c |
 | `kernel/mt7530-phy-disable-eee.sh` | post-update | EEE am MT7530-PHY aus (Switch des MT7621); unter 6.6 als Target-Patch von ramips, weil mediatek die Datei selbst umbaut | Nachbau OpenWrt PR #25058 |
 | `kernel/ag71xx-rx-ring-no-bug.sh` | post-update | ag71xx: kein `BUG()` bei leerem RX-Ring (RAM-Druck) | |
+| `kernel/mtk-eth-small-frag.sh` | post-update | **Test (13.10.2026):** mtk_eth_soc behandelt Fragmente unter 16 Byte (segmentieren bzw. linearisieren) auf allen Netsys-Versionen statt nur v1 (`hack-6.6/792-...`). Nach MediaTek mtk-openwrt-feeds `241d8642`; Kandidat gegen TX-Timeouts auf MT7981 (Cudy TR3000) | Mason Chang (MediaTek), auf 6.6 uebertragen |
 | `targets/ath10k-thermal.sh` | post-update | **Test (10.10.2026):** `try_config('ATH10K_THERMAL', true)` in `targets/generic`: ath10k-Temperatur über hwmon/thermal, zieht `kmod-hwmon-core` und `kmod-thermal` ins Image. Wird nach dem Test (Flash C25, RAM 64 MB) behalten oder zurückgerollt | |
 
 Nicht angewendet:

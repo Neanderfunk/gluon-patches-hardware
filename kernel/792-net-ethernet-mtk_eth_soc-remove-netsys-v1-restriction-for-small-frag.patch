@@ -1,0 +1,39 @@
+From: Mason Chang <mason-cw.chang@mediatek.com>
+Date: Fri, 2 Oct 2026 11:04:27 +0800
+Subject: [PATCH] net: ethernet: mtk_eth_soc: remove netsys v1 restriction for
+ small frag check
+
+All TX DMAs across all Netsys versions have a hardware limitation that
+SDL must not be less than 16, so the Netsys version check has to be
+removed.
+
+Without this patch, the TX DMA may behave unexpectedly when processing
+fragments shorter than 16 bytes.
+
+[Neanderfunk: aus mediatek/mtk-openwrt-feeds 241d864218630c9cb380a3657c89f8fc3bdc3434
+ (dort 25.12/patches-6.12/999-eth-56) auf OpenWrts
+ generic/pending-6.6/732-01 (Kernel 6.6) uebertragen. In 6.6 steht die
+ netsys-v1-Bedingung direkt in mtk_start_xmit statt in mtk_skb_valid_gso.]
+---
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -1788,8 +1788,7 @@
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+-	if (mtk_is_netsys_v1(eth) &&
+-	    skb_is_gso(skb) && mtk_skb_has_small_frag(skb)) {
++	if (skb_is_gso(skb) && mtk_skb_has_small_frag(skb)) {
+ 		segs = skb_gso_segment(skb, dev->features & ~NETIF_F_ALL_TSO);
+ 		if (IS_ERR(segs))
+ 			goto drop;
+@@ -1816,8 +1815,7 @@
+ 	}
+ 
+ 	skb_list_walk_safe(skb, skb, next) {
+-		if ((mtk_is_netsys_v1(eth) &&
+-		     mtk_skb_has_small_frag(skb) && skb_linearize(skb)) ||
++		if ((mtk_skb_has_small_frag(skb) && skb_linearize(skb)) ||
+ 		    mtk_tx_map(skb, dev, tx_num, ring, gso) < 0) {
+ 				stats->tx_dropped++;
+ 				dev_kfree_skb_any(skb);
