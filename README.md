@@ -68,6 +68,16 @@ Nicht angewendet:
 | `parked/squashfs-blocksize-per-device.sh` | squashfs-Blockgröße je Gerät (vorbereitet, nicht aktiv) |
 | `parked/cudy-rtl8221b-irq-parent.sh` | TR3000/M3000: `interrupt-parent = <&pio>` für den 2,5G-PHY (Backport OpenWrt 82b69df); geparkt, siehe Patchkopf |
 
+## Prüfen am Gerät
+
+* `kernel/mt7530-phy-disable-eee.sh`: an einem MT7621-Gerät (Mi Router 4A
+  Gigabit, ERX) zeigt `ethtool --show-eee lan1` keine angekündigten
+  EEE-Modi, bzw. MMD 7.60 (EEE-Ankündigung) ist 0. Der Link an einem
+  100-Mbit-Port und an einem Kabel mit nur zwei Adernpaaren ist stabil und
+  schleift nicht. Sollte der Weg aus PR #25058 nicht reichen: PR #22647
+  (DSA-seitig, von #25058 abgelöst) hat adorfer getestet, damit
+  funktionierte es (Angabe 15.09.2026).
+
 ## Abhängigkeiten
 
 * Die Skripte sind voneinander unabhängig. `targets/additionaltargets.sh`
