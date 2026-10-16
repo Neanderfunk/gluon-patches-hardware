@@ -35,6 +35,7 @@ PRE_UPDATE=(
   devices/cudy-m3000-v2-yt8821/openwrt.sh     # Cudy M3000 v2 mit YT8821 (aus 25.12)
   kernel/mt7915-ps-aql/openwrt.sh             # mt7915/mt798x Power-Save/AQL aus Gluon main (#3673), ersetzt Gluons 0012
   kernel/mt76x02-thermal/openwrt.sh           # TEST: MT7610E/MT7612E-Temperatur als Thermal-Zone (Test, Rueckrollen nach dem Test moeglich)
+  kernel/mpc85xx-simpleimage-loader/openwrt.sh # mpc85xx: Loader-Adressen (WS-AP3715i-sysupgrade, AP3825i-initramfs), #25541 + Nachbau #25257
 )
 
 # Reihenfolge wie im Neanderfunk-Bau. Die Skripte sind voneinander

@@ -1,0 +1,66 @@
+From 2cddb1c46defdf987292c60e1c5d4c7b5ea97b56 Mon Sep 17 00:00:00 2001
+From: David Bauer <mail@david-bauer.net>
+Date: Wed, 12 Nov 2025 19:51:13 +0100
+Subject: [PATCH 1/3] mpc85xx: relocate AP3825i simpleImage loader
+
+The initramfs images beginning 24.10 do not boot on the AP3825i. The
+space available for decompression preceeding the compressed image is not
+enough, crashing the system.
+
+To make existing installation instructions continue to work, link the
+loader at an address following the loadaddress of the U-Boot image.
+
+Signed-off-by: David Bauer <mail@david-bauer.net>
+(cherry picked from commit 4afaacdd7f578d4e365d0cfac44b5a614650adb3)
+[apply the change to patches-6.6 instead of patches-6.12]
+
+Signed-off-by: Grische <github@grische.xyz>
+---
+ target/linux/mpc85xx/image/p1020.mk                |  4 ++--
+ .../107-powerpc-85xx-add-ws-ap3825i-support.patch  | 14 ++++++++------
+ 2 files changed, 10 insertions(+), 8 deletions(-)
+
+diff --git a/target/linux/mpc85xx/image/p1020.mk b/target/linux/mpc85xx/image/p1020.mk
+index c310b26c87..a40e2620bd 100644
+--- a/target/linux/mpc85xx/image/p1020.mk
++++ b/target/linux/mpc85xx/image/p1020.mk
+@@ -83,8 +83,8 @@ define Device/extreme-networks_ws-ap3825i
+   DEVICE_PACKAGES := kmod-ath10k-ct ath10k-firmware-qca988x-ct
+   BLOCKSIZE := 128k
+   KERNEL_NAME := simpleImage.ws-ap3825i
+-  KERNEL_ENTRY := 0x1500000
+-  KERNEL_LOADADDR := 0x1500000
++  KERNEL_ENTRY := 0x3000000
++  KERNEL_LOADADDR := 0x3000000
+   KERNEL = kernel-bin | fit none $(KDIR)/image-$$(DEVICE_DTS).dtb
+   IMAGES := sysupgrade.bin
+   IMAGE/sysupgrade.bin := append-kernel | append-rootfs | pad-rootfs | append-metadata
+diff --git a/target/linux/mpc85xx/patches-6.6/107-powerpc-85xx-add-ws-ap3825i-support.patch b/target/linux/mpc85xx/patches-6.6/107-powerpc-85xx-add-ws-ap3825i-support.patch
+index 9d96081c9d..622c1e0f9b 100644
+--- a/target/linux/mpc85xx/patches-6.6/107-powerpc-85xx-add-ws-ap3825i-support.patch
++++ b/target/linux/mpc85xx/patches-6.6/107-powerpc-85xx-add-ws-ap3825i-support.patch
+@@ -55,13 +55,15 @@ WS-AP3825i AP.
+  
+ --- a/arch/powerpc/boot/wrapper
+ +++ b/arch/powerpc/boot/wrapper
+-@@ -350,7 +350,8 @@ adder875-redboot)
++@@ -355,6 +355,11 @@ simpleboot-ws-ap3710i)
++     link_address='0x1500000'
++     binary=y
+      ;;
+- simpleboot-hiveap-330|\
+- simpleboot-tl-wdr4900-v1|\
+--simpleboot-ws-ap3710i)
+-+simpleboot-ws-ap3710i|\
+ +simpleboot-ws-ap3825i)
+++    platformo="$object/fixed-head.o $object/simpleboot.o"
+++    link_address='0x3000000'
+++    binary=y
+++    ;;
++ simpleboot-*)
+      platformo="$object/fixed-head.o $object/simpleboot.o"
+-     link_address='0x1500000'
+      binary=y
+-- 
+2.53.0
+

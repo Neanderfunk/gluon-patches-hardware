@@ -1,0 +1,34 @@
+From 258cca635c3ee604b79b26ae42f8185c8115af15 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?=C3=81lvaro=20Fern=C3=A1ndez=20Rojas?= <noltari@gmail.com>
+Date: Thu, 20 Nov 2025 10:26:07 +0100
+Subject: [PATCH 2/3] mpc85xx: refresh kernel patch
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Commit 4afaacdd7f57 changed 107-powerpc-85xx-add-ws-ap3825i-support.patch
+without refreshing the rest of the patches.
+
+4afaacdd7f57 mpc85xx: relocate AP3825i simpleImage loader
+Signed-off-by: Álvaro Fernández Rojas <noltari@gmail.com>
+(cherry picked from commit 15fb19cdb31c7ee33437b1182fea15d9848527a4)
+[apply the change to patches-6.6 instead of patches-6.12]
+
+Signed-off-by: Grische <github@grische.xyz>
+---
+ .../mpc85xx/patches-6.6/110-powerpc-85xx-br200-wp-support.patch | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/target/linux/mpc85xx/patches-6.6/110-powerpc-85xx-br200-wp-support.patch b/target/linux/mpc85xx/patches-6.6/110-powerpc-85xx-br200-wp-support.patch
+index 5174e938f0..b6d399dcc7 100644
+--- a/target/linux/mpc85xx/patches-6.6/110-powerpc-85xx-br200-wp-support.patch
++++ b/target/linux/mpc85xx/patches-6.6/110-powerpc-85xx-br200-wp-support.patch
+@@ -54,4 +54,4 @@
+ +simpleboot-br200-wp|\
+  simpleboot-hiveap-330|\
+  simpleboot-tl-wdr4900-v1|\
+- simpleboot-ws-ap3710i|\
++ simpleboot-ws-ap3710i)
+-- 
+2.53.0
+
