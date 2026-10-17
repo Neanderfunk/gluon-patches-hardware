@@ -1,7 +1,7 @@
 From a6a63b85589b2ec6359ddce4f52ee8d04a24a085 Mon Sep 17 00:00:00 2001
 From: =?UTF-8?q?Pawe=C5=82=20Owoc?= <frut3k7@gmail.com>
 Date: Sun, 29 Mar 2026 14:28:55 +0200
-Subject: [PATCH 3/4] uboot-envtools: add u-boot-env for EX5601/WX5600
+Subject: [PATCH 3/5] uboot-envtools: add u-boot-env for EX5601/WX5600
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

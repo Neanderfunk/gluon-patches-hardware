@@ -1,7 +1,7 @@
 From 367969919ae2bc91809b821d05379f0513d577c1 Mon Sep 17 00:00:00 2001
 From: Aleksei Sviridkin <f@lex.la>
 Date: Thu, 3 Sep 2026 13:53:48 +0000
-Subject: [PATCH 4/4] uboot-mediatek: fix SPI bus-width spelling on the Zyxel
+Subject: [PATCH 4/5] uboot-mediatek: fix SPI bus-width spelling on the Zyxel
  WX5600-T0
 
 No test on this hardware, but the same community U-Boot source that

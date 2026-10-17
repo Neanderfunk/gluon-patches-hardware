@@ -1,0 +1,145 @@
+From c58ec718c9d88e2df1d186a6f334b682f39bcfe7 Mon Sep 17 00:00:00 2001
+From: adorfer <adorferen@gmail.com>
+Date: Sat, 17 Oct 2026 19:53:14 +0200
+Subject: [PATCH 5/5] uboot-mediatek: Zyxel WX5600-T0: adapt to U-Boot 2024.10
+
+The board patch was written for a newer U-Boot. In 2024.10 the mt7986
+pinctrl node is labelled pinctrl and the GPIO controller gpio, not pio, and
+several environment options still carry their old names. Without the renames
+the default environment (bootmenu, bootcmd) and the redundant UBI environment
+are silently dropped.
+
+- &pio <n> -> &gpio <n>, &pio { -> &pinctrl {
+- ENV_REDUNDANT -> SYS_REDUNDAND_ENVIRONMENT
+- ENV_RELOC_GD_ENV_ADDR -> SYS_RELOC_GD_ENV_ADDR
+- ENV_USE_DEFAULT_ENV_TEXT_FILE -> USE_DEFAULT_ENV_FILE
+- ENV_DEFAULT_ENV_TEXT_FILE -> DEFAULT_ENV_FILE
+- drop LED_ACTIVITY and LED_BOOT (not in 2024.10, LED blinking only)
+
+Same option names as the Zyxel EX5601-T0 board in 24.10. Built; every option
+of the defconfig ends up in .config.
+
+Signed-off-by: adorfer <adorferen@gmail.com>
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .../patches/471-add-zyzel-wx5600-t0.patch     | 32 +++++++++----------
+ 1 file changed, 15 insertions(+), 17 deletions(-)
+
+diff --git a/package/boot/uboot-mediatek/patches/471-add-zyzel-wx5600-t0.patch b/package/boot/uboot-mediatek/patches/471-add-zyzel-wx5600-t0.patch
+index 2e43559025..407f1548bf 100644
+--- a/package/boot/uboot-mediatek/patches/471-add-zyzel-wx5600-t0.patch
++++ b/package/boot/uboot-mediatek/patches/471-add-zyzel-wx5600-t0.patch
+@@ -1,6 +1,6 @@
+ --- /dev/null
+ +++ b/configs/mt7986_zyxel_wx5600-t0_defconfig
+-@@ -0,0 +1,146 @@
++@@ -0,0 +1,144 @@
+ +CONFIG_ARM=y
+ +CONFIG_CMD_MII=y
+ +CONFIG_CMD_MDIO=y
+@@ -72,13 +72,13 @@
+ +CONFIG_OF_EMBED=y
+ +CONFIG_ENV_OVERWRITE=y
+ +CONFIG_ENV_IS_IN_UBI=y
+-+CONFIG_ENV_REDUNDANT=y
+++CONFIG_SYS_REDUNDAND_ENVIRONMENT=y
+ +CONFIG_ENV_UBI_PART="ubi"
+ +CONFIG_ENV_UBI_VOLUME="ubootenv"
+ +CONFIG_ENV_UBI_VOLUME_REDUND="ubootenv2"
+-+CONFIG_ENV_RELOC_GD_ENV_ADDR=y
+-+CONFIG_ENV_USE_DEFAULT_ENV_TEXT_FILE=y
+-+CONFIG_ENV_DEFAULT_ENV_TEXT_FILE="defenvs/zyxel_wx5600-t0_env"
+++CONFIG_SYS_RELOC_GD_ENV_ADDR=y
+++CONFIG_USE_DEFAULT_ENV_FILE=y
+++CONFIG_DEFAULT_ENV_FILE="defenvs/zyxel_wx5600-t0_env"
+ +CONFIG_ENV_VARS_UBOOT_RUNTIME_CONFIG=y
+ +CONFIG_VERSION_VARIABLE=y
+ +CONFIG_NET_RANDOM_ETHADDR=y
+@@ -145,8 +145,6 @@
+ +CONFIG_CMD_MII=y
+ +CONFIG_PHY_ADDR=5
+ +CONFIG_LED_SW_BLINK=y
+-+CONFIG_LED_ACTIVITY=y
+-+CONFIG_LED_BOOT=y
+ --- /dev/null
+ +++ b/arch/arm/dts/mt7986b-zyxel_wx5600-t0.dts
+ @@ -0,0 +1,192 @@
+@@ -186,13 +184,13 @@
+ +		compatible = "gpio-keys";
+ +		factory {
+ +			label = "reset";
+-+			gpios = <&pio 9 GPIO_ACTIVE_LOW>;
+++			gpios = <&gpio 9 GPIO_ACTIVE_LOW>;
+ +			linux,code = <KEY_RESTART>;
+ +		};
+ +
+ +		wps {
+ +			label = "wps";
+-+			gpios = <&pio 10 GPIO_ACTIVE_LOW>;
+++			gpios = <&gpio 10 GPIO_ACTIVE_LOW>;
+ +			linux,code = <KEY_WPS_BUTTON>;
+ +		};
+ +	};
+@@ -202,37 +200,37 @@
+ +
+ +		green_pwr {
+ +			label = "green:pwr";
+-+			gpios = <&pio 12 GPIO_ACTIVE_LOW>;
+++			gpios = <&gpio 12 GPIO_ACTIVE_LOW>;
+ +			default-state = "off";
+ +		};
+ +
+ +       red_pwr {
+ +			label = "red:pwr";
+-+			gpios = <&pio 15 GPIO_ACTIVE_LOW>;
+++			gpios = <&gpio 15 GPIO_ACTIVE_LOW>;
+ +			default-state = "off";
+ +		};
+ +
+ +       green_signal {
+ +			label = "green:signal";
+-+			gpios = <&pio 26 GPIO_ACTIVE_LOW>;
+++			gpios = <&gpio 26 GPIO_ACTIVE_LOW>;
+ +			default-state = "off";
+ +		};
+ +
+ +       red_signal {
+ +			label = "red:signal";
+-+			gpios = <&pio 32 GPIO_ACTIVE_LOW>;
+++			gpios = <&gpio 32 GPIO_ACTIVE_LOW>;
+ +			default-state = "off";
+ +		};
+ +
+ +       green_wlan {
+ +			label = "green:wlan";
+-+			gpios = <&pio 14 GPIO_ACTIVE_LOW>;
+++			gpios = <&gpio 14 GPIO_ACTIVE_LOW>;
+ +			default-state = "off";
+ +		};
+ +
+ +		red_wps {
+ +			label = "red:wps";
+-+			gpios = <&pio 13 GPIO_ACTIVE_LOW>;
+++			gpios = <&gpio 13 GPIO_ACTIVE_LOW>;
+ +			default-state = "off";
+ +		};
+ +	};
+@@ -254,13 +252,13 @@
+ +                compatible = "ethernet-phy-id67c9.de0a";
+ +                reg = <5>;
+ +                maxlinear,use-broken-interrupts;
+-+                reset-gpios = <&pio 6 GPIO_ACTIVE_LOW>;
+++                reset-gpios = <&gpio 6 GPIO_ACTIVE_LOW>;
+ +                reset-assert-us = <600>;
+ +                reset-deassert-us = <20000>;
+ +        };
+ +};
+ +
+-+&pio {
+++&pinctrl {
+ +	spi_flash_pins: spi0-pins-func-1 {
+ +		mux {
+ +			function = "flash";
+-- 
+2.53.0
+

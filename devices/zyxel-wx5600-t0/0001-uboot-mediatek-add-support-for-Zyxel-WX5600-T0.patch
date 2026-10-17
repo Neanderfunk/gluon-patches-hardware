@@ -1,7 +1,7 @@
 From eb8b8cb7a84f51a01712dc4d823f427d4d058da6 Mon Sep 17 00:00:00 2001
 From: Valerio 'ftp21' Mancini <ftp21@ftp21.eu>
 Date: Wed, 18 Feb 2026 14:34:26 +0100
-Subject: [PATCH 1/4] uboot-mediatek: add support for Zyxel WX5600-T0
+Subject: [PATCH 1/5] uboot-mediatek: add support for Zyxel WX5600-T0
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

@@ -1,7 +1,7 @@
 From 0bd4aeeb30cfacafa909b702293cfac7df997cd9 Mon Sep 17 00:00:00 2001
 From: Valerio 'ftp21' Mancini <ftp21@ftp21.eu>
 Date: Wed, 18 Feb 2026 14:34:31 +0100
-Subject: [PATCH 2/4] mediatek: add support for Zyxel WX5600-T0
+Subject: [PATCH 2/5] mediatek: add support for Zyxel WX5600-T0
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit
