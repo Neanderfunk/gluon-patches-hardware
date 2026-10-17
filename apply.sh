@@ -60,6 +60,7 @@ POST_UPDATE=(
   devices/tplink-eap620-hd-v1/targets.sh
   devices/cudy-m3000-v2-yt8821/targets.sh
   devices/mercusys-mr80x-v2/targets.sh
+  targets/filogic-mt7986.sh                   # MT7986-Geraete aus OpenWrt 24.10, nur Gluon-Eintraege (nach zyxel-nwa90ax/targets.sh)
   devices/add-cellular.sh                     # ZTE MF286R
   network/interfaces-patch.sh                 # primaere MACs und Schnittstellen der zusaetzlichen Geraete
   kernel/rtl8221b-skip-mmd30.sh               # RTL8221B: MMD 30 beim PHY-Scan auslassen

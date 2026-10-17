@@ -1,0 +1,156 @@
+--- a/targets/mediatek-filogic
++++ b/targets/mediatek-filogic
+@@ -187,3 +187,153 @@
+ device('zyxel-nwa50ax-pro', 'zyxel_nwa50ax-pro', {
+ 	aliases = {'zyxel-nwa90ax-pro'},
+ })
++
++
++-- Neanderfunk (gluon-patches-hardware, Zweig v2025.1.x-next): MT7986-Geraete,
++-- deren Profil OpenWrt 24.10 schon hat. Bei uns ungetestet. Image-Arten nach
++-- profiles.json von OpenWrt 24.10.4 bzw. 24.10.8.
++
++-- Acelink
++
++device('acelink-ew-7886cax', 'acelink_ew-7886cax')
++
++-- Acer
++
++device('acer-predator-connect-w6', 'acer_predator-w6', {
++	factory = false,
++})
++
++device('acer-predator-connect-w6d', 'acer_predator-w6d', {
++	factory = false,
++})
++
++device('acer-connect-vero-w6m', 'acer_vero-w6m', {
++	factory = false,
++})
++
++-- Adtran (SmartRG)
++
++device('adtran-sdg-8612', 'smartrg_sdg-8612', {
++	factory = false,
++})
++
++device('adtran-sdg-8614', 'smartrg_sdg-8614', {
++	factory = false,
++})
++
++device('adtran-sdg-8622', 'smartrg_sdg-8622', {
++	factory = false,
++})
++
++device('adtran-sdg-8632', 'smartrg_sdg-8632', {
++	factory = false,
++})
++
++-- ASUS
++
++device('asus-tuf-ax4200q', 'asus_tuf-ax4200q', {
++	factory = false,
++})
++
++-- Bananapi
++
++device('bananapi-bpi-r3', 'bananapi_bpi-r3', {
++	factory = false,
++	sysupgrade_ext = '.itb',
++})
++
++device('bananapi-bpi-r3-mini', 'bananapi_bpi-r3-mini', {
++	factory = false,
++	sysupgrade_ext = '.itb',
++})
++
++-- ipTIME
++
++device('iptime-ax7800m-6e', 'iptime_ax7800m-6e')
++
++-- JDCloud
++
++device('jdcloud-re-cp-03', 'jdcloud_re-cp-03', {
++	factory = false,
++	sysupgrade_ext = '.itb',
++})
++
++-- Mercusys
++
++device('mercusys-mr90x-v1-ubi', 'mercusys_mr90x-v1-ubi', {
++	factory = false,
++	sysupgrade_ext = '.itb',
++})
++
++-- Netcore
++
++device('netcore-n60', 'netcore_n60', {
++	factory = false,
++	sysupgrade_ext = '.itb',
++})
++
++-- Ruijie
++
++device('ruijie-rg-x60-pro', 'ruijie_rg-x60-pro', {
++	factory = false,
++})
++
++-- TP-Link
++
++device('tp-link-archer-ax80-v1', 'tplink_archer-ax80-v1', {
++	factory = false,
++})
++
++device('tp-link-re6000xd', 'tplink_re6000xd', {
++	factory = false,
++})
++
++device('tp-link-tl-xdr4288', 'tplink_tl-xdr4288', {
++	factory = false,
++	sysupgrade_ext = '.itb',
++})
++
++device('tp-link-tl-xdr6086', 'tplink_tl-xdr6086', {
++	factory = false,
++	sysupgrade_ext = '.itb',
++})
++
++device('tp-link-tl-xdr6088', 'tplink_tl-xdr6088', {
++	factory = false,
++	sysupgrade_ext = '.itb',
++})
++
++device('tp-link-tl-xtr8488', 'tplink_tl-xtr8488', {
++	factory = false,
++	sysupgrade_ext = '.itb',
++})
++
++-- Wavlink
++
++device('wavlink-wl-wn536ax6-a', 'wavlink_wl-wn536ax6-a', {
++	factory = false,
++})
++
++-- Xiaomi
++
++device('xiaomi-redmi-router-ax6000', 'xiaomi_redmi-router-ax6000-stock', {
++	factory = false,
++})
++
++device('xiaomi-redmi-router-ax6000-openwrt-u-boot-layout', 'xiaomi_redmi-router-ax6000-ubootmod', {
++	factory = false,
++	sysupgrade_ext = '.itb',
++})
++
++-- Zyxel
++
++device('zyxel-ex5601-t0', 'zyxel_ex5601-t0-stock')
++
++device('zyxel-ex5601-t0-openwrt-u-boot-layout', 'zyxel_ex5601-t0-ubootmod', {
++	factory = false,
++	sysupgrade_ext = '.itb',
++})
++
++device('zyxel-ex5700-telenor', 'zyxel_ex5700-telenor', {
++	factory = false,
++})
