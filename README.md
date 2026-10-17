@@ -68,6 +68,7 @@ Nicht angewendet:
 | --- | --- |
 | `parked/squashfs-blocksize-per-device.sh` | squashfs-Blockgröße je Gerät (vorbereitet, nicht aktiv) |
 | `parked/cudy-rtl8221b-irq-parent.sh` | TR3000/M3000: `interrupt-parent = <&pio>` für den 2,5G-PHY (Backport OpenWrt 82b69df); geparkt, siehe Patchkopf |
+| `parked/ipq50xx-mercusys-mr80x-v2/` | Target qualcommax-ipq50xx mit Mercusys MR80X v2 / MR3000X v2.0 (Backport aus OpenWrt main, 44 Patches); am Gerät erprobt, geparkt bis zum Bau der übrigen qualcommax-Targets, siehe README dort |
 
 ## Prüfen am Gerät
 

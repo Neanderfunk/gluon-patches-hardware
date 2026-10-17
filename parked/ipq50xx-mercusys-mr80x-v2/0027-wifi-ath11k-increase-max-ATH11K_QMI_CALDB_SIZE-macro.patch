@@ -1,0 +1,59 @@
+From 58c26b1d85ab67b7309a2caf4ceaeb1aabe43f14 Mon Sep 17 00:00:00 2001
+From: George Moussalem <george.moussalem@outlook.com>
+Date: Fri, 13 Jun 2025 11:36:16 +0400
+Subject: [PATCH 27/42] wifi: ath11k: increase max ATH11K_QMI_CALDB_SIZE macro
+
+QCN6122 wifi in fw-memory-mode 1 has a slightly larger caldb size than
+currently defined in the ath11k driver. When coldboot calibration was
+disabled, the fw mem mode was changed from 2 (256MB mem profile) to 1
+(512MB mem profile), which is the correct setting for devices in scope.
+However, in fw mem mode, the caldb size is 0x500000 instead of the max
+0x480000 defined in the driver, causing QCN6122 wifi failing to boot:
+
+ath11k b00a040.wifi1: qmi mem size is low to load caldata
+ath11k b00a040.wifi1: failed to assign qmi target memory: -22
+
+As such, change the max caldb memory size accordingly.
+
+This macro is used by the driver only as a max size limit to validate
+the requested caldb size returned by QMI. Different ath11k wifi chips
+have different caldb sizes (for ex. the size for IPQ5018 is 0x200000).
+
+Fixes: cf715a230589 ("wifi: ath11k: disable coldboot calibration for ipq5018")
+Signed-off-by: George Moussalem <george.moussalem@outlook.com>
+Link: https://github.com/openwrt/openwrt/pull/19118
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+
+(cherry picked from commit aefdbf0edc9ea046f55868ddee85442a591b2e4b)
+
+[Neanderfunk: an Kernel 6.6 / OpenWrt 24.10 angepasst: 920 gegen
+backports 6.12.96 refresht.]
+---
+ .../ath11k/920-wifi-ath11k-add-hw-params-for-QCN6122.patch | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/package/kernel/mac80211/patches/ath11k/920-wifi-ath11k-add-hw-params-for-QCN6122.patch b/package/kernel/mac80211/patches/ath11k/920-wifi-ath11k-add-hw-params-for-QCN6122.patch
+index 5f06c5b1b8..aa0fdd53df 100644
+--- a/package/kernel/mac80211/patches/ath11k/920-wifi-ath11k-add-hw-params-for-QCN6122.patch
++++ b/package/kernel/mac80211/patches/ath11k/920-wifi-ath11k-add-hw-params-for-QCN6122.patch
+@@ -105,7 +105,7 @@ Signed-off-by: George Moussalem <george.moussalem@outlook.com>
+  enum ath11k_firmware_mode {
+ --- a/drivers/net/wireless/ath/ath11k/qmi.h
+ +++ b/drivers/net/wireless/ath/ath11k/qmi.h
+-@@ -22,6 +22,7 @@
++@@ -22,10 +22,11 @@
+  #define ATH11K_QMI_WLFW_SERVICE_INS_ID_V01_IPQ8074	0x02
+  #define ATH11K_QMI_WLFW_SERVICE_INS_ID_V01_QCN9074	0x07
+  #define ATH11K_QMI_WLFW_SERVICE_INS_ID_V01_WCN6750	0x03
+@@ -113,3 +113,8 @@ Signed-off-by: George Moussalem <george.moussalem@outlook.com>
+  #define ATH11K_QMI_WLANFW_MAX_TIMESTAMP_LEN_V01	32
+  #define ATH11K_QMI_RESP_LEN_MAX			8192
+  #define ATH11K_QMI_WLANFW_MAX_NUM_MEM_SEG_V01	52
++-#define ATH11K_QMI_CALDB_SIZE			0x480000
+++#define ATH11K_QMI_CALDB_SIZE			0x500000
++ #define ATH11K_QMI_BDF_EXT_STR_LENGTH		0x20
++ #define ATH11K_QMI_FW_MEM_REQ_SEGMENT_CNT	5
++ 
+-- 
+2.53.0
+

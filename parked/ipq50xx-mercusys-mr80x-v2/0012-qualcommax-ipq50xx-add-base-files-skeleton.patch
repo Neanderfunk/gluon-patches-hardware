@@ -1,0 +1,159 @@
+From ebbbc19cf25f492a8c6a4e7753ea48f04d91f75c Mon Sep 17 00:00:00 2001
+From: adorfer <adorferen@gmail.com>
+Date: Tue, 13 Oct 2026 18:43:27 +0200
+Subject: [PATCH 12/42] qualcommax: ipq50xx: add base-files skeleton
+
+Add the board-independent part of the ipq50xx base-files as they were in
+OpenWrt main on Linux 6.6 (8dbbca029d^), without any device entries:
+
+- etc/board.d/01_leds, 02_network: empty board cases
+- etc/hotplug.d/firmware/11-ath11k-caldata: the IPQ5018 (AHB), QCN6122
+  (AHB) and QCN9074 (PCI) caldata paths, with the PCI path already updated
+  for the fixed PCI domain (cfbfdd9ca6)
+- lib/upgrade/platform.sh: PART_NAME, metadata check, RAMFS_COPY_* and the
+  generic remove_oem_ubi_volume() helper, falling back to
+  default_do_upgrade
+
+Devices add their cases on top. The device-specific files of main
+(03_set_oem_name, init.d/bootcount, elecom.sh, glinet-upgrade.sh and the
+Linksys helpers) are not included.
+
+Sources: 398f4a9737, 9a7192c08e, b6fa124bdf, cfbfdd9ca6, 7b401a9d95
+(George Moussalem, Robert Marko and others).
+---
+ .../ipq50xx/base-files/etc/board.d/01_leds    | 16 ++++++++
+ .../ipq50xx/base-files/etc/board.d/02_network | 18 +++++++++
+ .../etc/hotplug.d/firmware/11-ath11k-caldata  | 25 ++++++++++++
+ .../base-files/lib/upgrade/platform.sh        | 40 +++++++++++++++++++
+ 4 files changed, 99 insertions(+)
+ create mode 100644 target/linux/qualcommax/ipq50xx/base-files/etc/board.d/01_leds
+ create mode 100644 target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
+ create mode 100644 target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
+ create mode 100644 target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh
+
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/01_leds b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/01_leds
+new file mode 100644
+index 0000000000..1d02ad370b
+--- /dev/null
++++ b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/01_leds
+@@ -0,0 +1,16 @@
++#
++# Copyright (C) 2015 OpenWrt.org
++#
++
++. /lib/functions/uci-defaults.sh
++
++board_config_update
++
++board=$(board_name)
++
++case "$board" in
++esac
++
++board_config_flush
++
++exit 0
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
+new file mode 100644
+index 0000000000..3a4b117371
+--- /dev/null
++++ b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
+@@ -0,0 +1,18 @@
++#!/bin/sh
++
++. /lib/functions/uci-defaults.sh
++. /lib/functions/system.sh
++
++ipq50xx_setup_interfaces()
++{
++	local board="$1"
++	case $board in
++	esac
++}
++
++board_config_update
++board=$(board_name)
++ipq50xx_setup_interfaces $board
++board_config_flush
++
++exit 0
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata b/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
+new file mode 100644
+index 0000000000..f1cafc52d6
+--- /dev/null
++++ b/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
+@@ -0,0 +1,25 @@
++#!/bin/sh
++
++[ -e /lib/firmware/$FIRMWARE ] && exit 0
++
++. /lib/functions/caldata.sh
++
++board=$(board_name)
++
++case "$FIRMWARE" in
++"ath11k/IPQ5018/hw1.0/cal-ahb-c000000.wifi.bin")
++	case "$board" in
++	esac
++	;;
++"ath11k/QCN6122/hw1.0/cal-ahb-b00a040.wifi1.bin")
++	case "$board" in
++	esac
++	;;
++"ath11k/QCN9074/hw1.0/cal-pci-0000:01:00.0.bin")
++	case "$board" in
++	esac
++	;;
++*)
++	exit 1
++	;;
++esac
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh b/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh
+new file mode 100644
+index 0000000000..b67147b668
+--- /dev/null
++++ b/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh
+@@ -0,0 +1,40 @@
++PART_NAME=firmware
++REQUIRE_IMAGE_METADATA=1
++
++RAMFS_COPY_BIN='dumpimage fw_printenv fw_setenv head seq'
++RAMFS_COPY_DATA='/etc/fw_env.config /var/lock/fw_printenv.lock'
++
++remove_oem_ubi_volume() {
++	local oem_volume_name="$1"
++	local oem_ubivol
++	local mtdnum
++	local ubidev
++
++	mtdnum=$(find_mtd_index "$CI_UBIPART")
++	if [ ! "$mtdnum" ]; then
++		return
++	fi
++
++	ubidev=$(nand_find_ubi "$CI_UBIPART")
++	if [ ! "$ubidev" ]; then
++		ubiattach --mtdn="$mtdnum"
++		ubidev=$(nand_find_ubi "$CI_UBIPART")
++	fi
++
++	if [ "$ubidev" ]; then
++		oem_ubivol=$(nand_find_volume "$ubidev" "$oem_volume_name")
++		[ "$oem_ubivol" ] && ubirmvol "/dev/$ubidev" --name="$oem_volume_name"
++	fi
++}
++
++platform_check_image() {
++	return 0;
++}
++
++platform_do_upgrade() {
++	case "$(board_name)" in
++	*)
++		default_do_upgrade "$1"
++		;;
++	esac
++}
+-- 
+2.53.0
+

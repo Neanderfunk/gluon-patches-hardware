@@ -1,0 +1,386 @@
+From c91303226e596c8e6af6f186d99d67e1659a8de9 Mon Sep 17 00:00:00 2001
+From: George Moussalem <george.moussalem@outlook.com>
+Date: Mon, 7 Oct 2024 10:35:41 +0400
+Subject: [PATCH 01/42] qca-ssdk: add support for ipq50xx
+
+The codename for IPQ50xx is Maple (abbreviated as 'MP'), so let's pass
+the codename to allow the QCA-SSDK to build for the IPQ50xx SoC.
+
+In addition, disable compiling the MP_PHY driver in favor of a native
+driver being upstreamed.
+
+Co-developed-by: Ziyang Huang <hzyitc@outlook.com>
+Signed-off-by: Ziyang Huang <hzyitc@outlook.com>
+Signed-off-by: George Moussalem <george.moussalem@outlook.com>
+Link: https://github.com/openwrt/openwrt/pull/17182
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+
+(cherry picked from commit 7bffb469bc8c44333be6239aef4fdc8cbeb5bc03)
+---
+ package/kernel/qca-ssdk/Makefile              |   5 +-
+ .../111-hsl_phy-split-MP_PHY-config.patch     | 127 ++++++++++++++++++
+ ...t-MP-allow-to-ignore-reset-controlls.patch |  40 ++++++
+ .../patches/121-MP-fix-build-issues.patch     |  82 +++++++++++
+ ...replace-ioremap_nocache-with-ioremap.patch |  57 ++++++++
+ 5 files changed, 310 insertions(+), 1 deletion(-)
+ create mode 100644 package/kernel/qca-ssdk/patches/111-hsl_phy-split-MP_PHY-config.patch
+ create mode 100644 package/kernel/qca-ssdk/patches/112-init-MP-allow-to-ignore-reset-controlls.patch
+ create mode 100644 package/kernel/qca-ssdk/patches/121-MP-fix-build-issues.patch
+ create mode 100644 package/kernel/qca-ssdk/patches/122-init-replace-ioremap_nocache-with-ioremap.patch
+
+diff --git a/package/kernel/qca-ssdk/Makefile b/package/kernel/qca-ssdk/Makefile
+index 16b2b4477d..032f0de331 100644
+--- a/package/kernel/qca-ssdk/Makefile
++++ b/package/kernel/qca-ssdk/Makefile
+@@ -49,7 +49,7 @@ MAKE_FLAGS+= \
+ 	PTP_FEATURE=disable SWCONFIG_FEATURE=disable \
+ 	ISISC_ENABLE=disable MHT_ENABLE=disable \
+ 	IN_QCA803X_PHY=FALSE IN_QCA808X_PHY=FALSE \
+-	IN_MALIBU_PHY=FALSE \
++	IN_MALIBU_PHY=FALSE IN_MP_PHY=FALSE \
+ 	$(LNX_CONFIG_OPTS)
+ 
+ ifeq ($(CONFIG_TARGET_SUBTARGET), "ipq807x")
+@@ -60,6 +60,9 @@ ifeq ($(CONFIG_TARGET_SUBTARGET), "ipq60xx")
+     MAKE_FLAGS+= CHIP_TYPE=CPPE
+ endif
+ 
++ifeq ($(CONFIG_TARGET_SUBTARGET), "ipq50xx")
++    MAKE_FLAGS+= CHIP_TYPE=MP
++endif
+ 
+ define Build/Compile
+ 	+$(MAKE) $(PKG_JOBS) $(MAKE_FLAGS) -C $(PKG_BUILD_DIR) $(LNX_CONFIG_OPTS)
+diff --git a/package/kernel/qca-ssdk/patches/111-hsl_phy-split-MP_PHY-config.patch b/package/kernel/qca-ssdk/patches/111-hsl_phy-split-MP_PHY-config.patch
+new file mode 100644
+index 0000000000..8dd18c08e0
+--- /dev/null
++++ b/package/kernel/qca-ssdk/patches/111-hsl_phy-split-MP_PHY-config.patch
+@@ -0,0 +1,127 @@
++From 15847e1f56b7f9423095cd96fd9d524a41bee814 Mon Sep 17 00:00:00 2001
++From: Ziyang Huang <hzyitc@outlook.com>
++Date: Sun, 8 Sep 2024 15:24:07 +0800
++Subject: [PATCH] hsl_phy: split MP_PHY config
++
++Compiling the MP_PHY driver for ipq50xx is disabled in the Makefile in
++favor of a native driver being upstreamed. As such, conditionally disable 
++unneeded flags and code associated to initializing the MP GE PHY that 
++would otherwise conflict with the native driver.
++
++Signed-off-by: Ziyang Huang <hzyitc@outlook.com>
++Signed-off-by: George Moussalem <george.moussalem@outlook.com>
++---
++ config                         | 1 +
++ make/linux_opt.mk              | 5 +++++
++ src/adpt/mp/adpt_mp_portctrl.c | 4 ++++
++ src/hsl/phy/Makefile           | 8 +-------
++ src/hsl/phy/hsl_phy.c          | 4 ++--
++ 5 files changed, 13 insertions(+), 9 deletions(-)
++
++diff --git a/config b/config
++index 99d99dff..1f74e4f8 100644
++--- a/config
+++++ b/config
++@@ -299,6 +299,7 @@ else ifeq (DESS, $(CHIP_TYPE))
++ else ifeq (MP, $(CHIP_TYPE))
++ 	IN_QCA803X_PHY=TRUE
++ 	IN_QCA808X_PHY=TRUE
+++	IN_MP_PHY=TRUE
++ 	IN_SFP_PHY=TRUE
++ 	IN_SFP=TRUE
++ else ifeq (APPE, $(CHIP_TYPE))
++diff --git a/make/linux_opt.mk b/make/linux_opt.mk
++index 6936b754..66b08ef5 100644
++--- a/make/linux_opt.mk
+++++ b/make/linux_opt.mk
++@@ -183,6 +183,11 @@ endif
++ ifeq (TRUE, $(IN_QCA808X_PHY))
++   MODULE_CFLAG += -DIN_QCA808X_PHY
++ endif
+++
+++ifeq (TRUE, $(IN_MP_PHY))
+++  MODULE_CFLAG += -DIN_MP_PHY
+++endif
+++
++ ifeq (TRUE, $(IN_SFP_PHY))
++   MODULE_CFLAG += -DIN_SFP_PHY
++ endif
++diff --git a/src/adpt/mp/adpt_mp_portctrl.c b/src/adpt/mp/adpt_mp_portctrl.c
++index 2c983fff..db60fc72 100644
++--- a/src/adpt/mp/adpt_mp_portctrl.c
+++++ b/src/adpt/mp/adpt_mp_portctrl.c
++@@ -92,12 +92,15 @@ static sw_error_t
++ adpt_mp_port_reset_set(a_uint32_t dev_id, a_uint32_t port_id)
++ {
++ 	sw_error_t rv = 0;
+++#ifdef IN_MP_PHY
++ 	a_uint32_t phy_addr;
++ 	hsl_phy_ops_t *phy_drv;
+++#endif
++ 
++ 	ADPT_DEV_ID_CHECK(dev_id);
++ 
++ 	if (port_id == SSDK_PHYSICAL_PORT1) {
+++#ifdef IN_MP_PHY
++ 		/*internal gephy reset*/
++ 		SW_RTN_ON_NULL (phy_drv = hsl_phy_api_ops_get(dev_id,
++ 				port_id));
++@@ -107,6 +110,7 @@ adpt_mp_port_reset_set(a_uint32_t dev_id, a_uint32_t port_id)
++ 		SW_RTN_ON_ERROR (rv);
++ 		rv = phy_drv->phy_function_reset(dev_id, phy_addr, PHY_FIFO_RESET);
++ 		SW_RTN_ON_ERROR (rv);
+++#endif
++ 	} else if (port_id == SSDK_PHYSICAL_PORT2) {
++ 		rv = adpt_mp_uniphy_adapter_port_reset(dev_id, port_id);
++ 	} else {
++diff --git a/src/hsl/phy/Makefile b/src/hsl/phy/Makefile
++index 68d0679f..0eae9377 100755
++--- a/src/hsl/phy/Makefile
+++++ b/src/hsl/phy/Makefile
++@@ -23,7 +23,7 @@ ifeq (ISIS, $(CHIP_TYPE))
++   SRC_LIST = f1_phy.c
++ endif
++ 
++-ifeq (MP, $(CHIP_TYPE))
+++ifeq (TRUE, $(IN_MP_PHY))
++   SRC_LIST = mpge_phy.c
++ ifeq (TRUE, $(IN_LED))
++   SRC_LIST += mpge_led.c
++@@ -40,12 +40,6 @@ endif
++ 
++ ifeq (ALL_CHIP, $(CHIP_TYPE))
++      SRC_LIST = f1_phy.c f2_phy.c malibu_phy.c
++-ifneq (,$(filter MP, $(SUPPORT_CHIP)))
++-     SRC_LIST += mpge_phy.c
++-ifeq (TRUE, $(IN_LED))
++-     SRC_LIST += mpge_led.c
++-endif
++-endif
++ endif
++ 
++ ifeq (NONHK_CHIP, $(CHIP_TYPE))
++diff --git a/src/hsl/phy/hsl_phy.c b/src/hsl/phy/hsl_phy.c
++index f2cf90e2..efab2343 100644
++--- a/src/hsl/phy/hsl_phy.c
+++++ b/src/hsl/phy/hsl_phy.c
++@@ -28,7 +28,7 @@
++ #if defined(ATHENA) ||defined(SHIVA) ||defined(HORUS)
++ #include <f2_phy.h>
++ #endif
++-#ifdef MP
+++#ifdef IN_MP_PHY
++ #include "mpge_phy.h"
++ #endif
++ #ifdef IN_MALIBU_PHY
++@@ -94,7 +94,7 @@ phy_driver_instance_t ssdk_phy_driver[] =
++ 	#else
++ 	{SFP_PHY_CHIP, {0}, NULL, NULL, NULL},
++ 	#endif
++-	#ifdef MP
+++	#ifdef IN_MP_PHY
++ 	{MPGE_PHY_CHIP, {0}, NULL, mpge_phy_init, NULL},
++ 	#else
++ 	{MPGE_PHY_CHIP, {0}, NULL, NULL, NULL},
++-- 
++2.40.1
++
+diff --git a/package/kernel/qca-ssdk/patches/112-init-MP-allow-to-ignore-reset-controlls.patch b/package/kernel/qca-ssdk/patches/112-init-MP-allow-to-ignore-reset-controlls.patch
+new file mode 100644
+index 0000000000..616ccea252
+--- /dev/null
++++ b/package/kernel/qca-ssdk/patches/112-init-MP-allow-to-ignore-reset-controlls.patch
+@@ -0,0 +1,40 @@
++From 01fb404dbda1872ad99cea88bf43313bed30200a Mon Sep 17 00:00:00 2001
++From: Ziyang Huang <hzyitc@outlook.com>
++Date: Sun, 8 Sep 2024 15:24:07 +0800
++Subject: [PATCH] init: MP: allow to ignore reset controlls
++
++The SSDK is not used anymore to initialize the internal IPQ5018 GE PHY as 
++there is a separate driver pending upstream review/approval:
++https://lore.kernel.org/all/TYZPR01MB5556D5568546D6DA4313209EC9762@ \
++TYZPR01MB5556.apcprd01.prod.exchangelabs.com/
++
++As such, change the code to not error out when the reset controls aren't 
++found in the DTS where the SSDK expects them. These resets are now defined
++under the definition based on the new driver mentioned above.
++
++Signed-off-by: Ziyang Huang <hzyitc@outlook.com>
++Signed-off-by: George Moussalem <george.moussalem@outlook.com>
++---
++ src/init/ssdk_clk.c | 6 ++----
++ 1 file changed, 2 insertions(+), 4 deletions(-)
++
++diff --git a/src/init/ssdk_clk.c b/src/init/ssdk_clk.c
++index 71e59452..bc244c6e 100644
++--- a/src/init/ssdk_clk.c
+++++ b/src/init/ssdk_clk.c
++@@ -1282,10 +1282,8 @@ ssdk_mp_reset_init(void)
++ 
++ 	for (i = 0; i < MP_BCR_RST_MAX; i++) {
++ 		rst = of_reset_control_get(rst_node, mp_rst_ids[i]);
++-		if (IS_ERR(rst)) {
++-			SSDK_ERROR("%s not exist!\n", mp_rst_ids[i]);
++-			return;
++-		}
+++		if (IS_ERR(rst))
+++			continue;
++ 		ssdk_gcc_reset(rst, SSDK_RESET_ASSERT);
++ 		msleep(200);
++ 		ssdk_gcc_reset(rst, SSDK_RESET_DEASSERT);
++-- 
++2.40.1
++
+diff --git a/package/kernel/qca-ssdk/patches/121-MP-fix-build-issues.patch b/package/kernel/qca-ssdk/patches/121-MP-fix-build-issues.patch
+new file mode 100644
+index 0000000000..14fe42bc73
+--- /dev/null
++++ b/package/kernel/qca-ssdk/patches/121-MP-fix-build-issues.patch
+@@ -0,0 +1,82 @@
++From a4378eb29c7b9dd95601d20f507a2220457f8ede Mon Sep 17 00:00:00 2001
++From: Ziyang Huang <hzyitc@outlook.com>
++Date: Sun, 8 Sep 2024 15:24:07 +0800
++Subject: [PATCH] MP: fix build issues
++
++Enable the IN_VSI make flag which enables macro definitions needed to 
++successfully compile the SSDK for the ipq50xx target. In addition, fix an 
++incorrect return type by expanding the macro called and return a boolean 
++instead of an integer.
++
++Signed-off-by: Ziyang Huang <hzyitc@outlook.com>
++Signed-off-by: George Moussalem <george.moussalem@outlook.com>
++---
++ config                         | 30 +-----------------------------
++ src/adpt/mp/adpt_mp_portctrl.c |  3 ++-
++ 2 files changed, 3 insertions(+), 30 deletions(-)
++
++diff --git a/config b/config
++index 1f74e4f8..58d67648 100644
++--- a/config
+++++ b/config
++@@ -374,6 +374,7 @@ ifneq (, $(filter MPPE APPE HPPE CPPE ALL_CHIP, $(CHIP_TYPE)))
++ endif
++ 
++ ifneq (, $(filter MP, $(CHIP_TYPE)))
+++	IN_VSI=TRUE
++ 	IN_UNIPHY=TRUE
++ endif
++ 
++@@ -436,35 +437,6 @@ endif
++ # SDK Features According To Specfic Switch  #
++ #############################################
++ ifeq (MP, $(CHIP_TYPE))
++-	ifeq (disable, $(ISISC_ENABLE))
++-		IN_ACL=FALSE
++-		IN_FDB=FALSE
++-		IN_IGMP=FALSE
++-		IN_LEAKY=FALSE
++-		IN_LED=FALSE
++-		IN_MIRROR=FALSE
++-		IN_MISC=FALSE
++-		IN_PORTVLAN=FALSE
++-		IN_QOS=FALSE
++-		IN_RATE=FALSE
++-		IN_STP=FALSE
++-		IN_VLAN=FALSE
++-		IN_REDUCED_ACL=FALSE
++-		IN_COSMAP=FALSE
++-		IN_IP=FALSE
++-		IN_NAT=FALSE
++-		IN_FLOW=FALSE
++-		IN_TRUNK=FALSE
++-		IN_RSS_HASH=FALSE
++-		IN_SEC=FALSE
++-		IN_QM=FALSE
++-		IN_PPPOE=FALSE
++-		IN_VSI=FALSE
++-		IN_SERVCODE=FALSE
++-		IN_BM=FALSE
++-		IN_SHAPER=FALSE
++-		IN_POLICER=FALSE
++-	endif
++ 	IN_CTRLPKT=TRUE
++ endif
++ 
++diff --git a/src/adpt/mp/adpt_mp_portctrl.c b/src/adpt/mp/adpt_mp_portctrl.c
++index db60fc72..c230e214 100644
++--- a/src/adpt/mp/adpt_mp_portctrl.c
+++++ b/src/adpt/mp/adpt_mp_portctrl.c
++@@ -45,7 +45,8 @@ _adpt_mp_gcc_mac_clock_set(a_uint32_t dev_id,
++ static a_bool_t
++ _adpt_mp_port_phy_connected (a_uint32_t dev_id, fal_port_t port_id)
++ {
++-	ADPT_DEV_ID_CHECK(dev_id);
+++	if (dev_id >= SW_MAX_NR_DEV)
+++		return A_FALSE;
++ 
++ 	/* force port which connect s17c or other device chip*/
++ 	if (hsl_port_feature_get(dev_id, port_id, PHY_F_FORCE | PHY_F_SFP)) {
++-- 
++2.40.1
++
+diff --git a/package/kernel/qca-ssdk/patches/122-init-replace-ioremap_nocache-with-ioremap.patch b/package/kernel/qca-ssdk/patches/122-init-replace-ioremap_nocache-with-ioremap.patch
+new file mode 100644
+index 0000000000..1e1e909bdb
+--- /dev/null
++++ b/package/kernel/qca-ssdk/patches/122-init-replace-ioremap_nocache-with-ioremap.patch
+@@ -0,0 +1,57 @@
++From a90a9f3e2a21cb87c2cbf2ddb999846aa614e88a Mon Sep 17 00:00:00 2001
++From: Ziyang Huang <hzyitc@outlook.com>
++Date: Sun, 8 Sep 2024 15:24:07 +0800
++Subject: [PATCH 2/2] init: replace ioremap_nocache() with ioremap()
++
++As per https://lore.kernel.org/linux-mips/20191209194819.GA28157@lst.de/T/,
++ioremap_nocache is deprecated so let's replace all calls by ioremap instead.
++
++Signed-off-by: Ziyang Huang <hzyitc@outlook.com>
++Signed-off-by: George Moussalem <george.moussalem@outlook.com>
++---
++ src/init/ssdk_clk.c | 8 ++++----
++ 1 file changed, 4 insertions(+), 4 deletions(-)
++
++diff --git a/src/init/ssdk_clk.c b/src/init/ssdk_clk.c
++index bc244c6e..dc45691e 100644
++--- a/src/init/ssdk_clk.c
+++++ b/src/init/ssdk_clk.c
++@@ -1183,7 +1183,7 @@ ssdk_mp_tcsr_get(a_uint32_t tcsr_offset, a_uint32_t *tcsr_val)
++ {
++ 	void __iomem *tcsr_base = NULL;
++ 
++-	tcsr_base = ioremap_nocache(TCSR_ETH_ADDR, TCSR_ETH_SIZE);
+++	tcsr_base = ioremap(TCSR_ETH_ADDR, TCSR_ETH_SIZE);
++ 	if (!tcsr_base)
++ 	{
++ 		SSDK_ERROR("Failed to map tcsr eth address!\n");
++@@ -1200,7 +1200,7 @@ ssdk_mp_tcsr_set(a_uint32_t tcsr_offset, a_uint32_t tcsr_val)
++ {
++ 	void __iomem *tcsr_base = NULL;
++ 
++-	tcsr_base = ioremap_nocache(TCSR_ETH_ADDR, TCSR_ETH_SIZE);
+++	tcsr_base = ioremap(TCSR_ETH_ADDR, TCSR_ETH_SIZE);
++ 	if (!tcsr_base)
++ 	{
++ 		SSDK_ERROR("Failed to map tcsr eth address!\n");
++@@ -1248,7 +1248,7 @@ ssdk_mp_cmnblk_stable_check(void)
++ 	a_uint32_t reg_val;
++ 	int i, loops = 20;
++ 
++-	pll_lock = ioremap_nocache(CMN_PLL_LOCKED_ADDR, CMN_PLL_LOCKED_SIZE);
+++	pll_lock = ioremap(CMN_PLL_LOCKED_ADDR, CMN_PLL_LOCKED_SIZE);
++ 	if (!pll_lock) {
++ 		SSDK_ERROR("Failed to map CMN PLL LOCK register!\n");
++ 		return A_FALSE;
++@@ -1303,7 +1303,7 @@ static void ssdk_cmnblk_pll_src_set(enum cmnblk_pll_src_type pll_source)
++ 	void __iomem *cmn_pll_src_base = NULL;
++ 	a_uint32_t reg_val;
++ 
++-	cmn_pll_src_base = ioremap_nocache(CMN_BLK_PLL_SRC_ADDR, CMN_BLK_SIZE);
+++	cmn_pll_src_base = ioremap(CMN_BLK_PLL_SRC_ADDR, CMN_BLK_SIZE);
++ 	if (!cmn_pll_src_base) {
++ 		SSDK_ERROR("Failed to map cmn pll source address!\n");
++ 		return;
++-- 
++2.40.1
++
+-- 
+2.53.0
+

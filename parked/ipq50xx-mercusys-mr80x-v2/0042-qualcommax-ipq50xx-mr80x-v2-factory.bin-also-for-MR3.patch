@@ -1,0 +1,42 @@
+From 5eee2c03ac0983ccb6cbd39200823e2e2073a72c Mon Sep 17 00:00:00 2001
+From: adorfer <adorferen@gmail.com>
+Date: Tue, 13 Oct 2026 18:27:43 +0200
+Subject: [PATCH 42/42] qualcommax: ipq50xx: mr80x-v2: factory.bin also for
+ MR3000X v2.0
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Der Mercusys MR3000X v2.0 ist dasselbe Board wie der MR80X v2. Seine
+Stock-Weboberfläche (Firmware 1.2.0 Build 20250904) lehnt das
+factory.bin mit "Ungültiger Dateityp." ab, solange die SupportList nur
+MR80X-Einträge hat. Mit der zusätzlichen Zeile
+
+  {product_name:MR3000X,product_ver:2.0.0,special_id:45550000}
+
+nahm sie dieselbe Datei an (Test Neanderfunk, 13.10.2026, Build des
+Port-Autors mit dem c127dev-Imagebuilder, fw-type MR80X unverändert).
+
+Eigener Neanderfunk-Patch, getrennt vom Upstream-Port gehalten.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ target/linux/qualcommax/image/ipq50xx.mk | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/target/linux/qualcommax/image/ipq50xx.mk b/target/linux/qualcommax/image/ipq50xx.mk
+index 56fe12e060..132d6afb34 100644
+--- a/target/linux/qualcommax/image/ipq50xx.mk
++++ b/target/linux/qualcommax/image/ipq50xx.mk
+@@ -31,6 +31,7 @@ define Device/mercusys_mr80x-v2
+ 	IMAGE/factory.bin := append-ubi | check-size | mercusys-fwup MR80X
+ 	MERCUSYS_SUPPORT_STRING := SupportList:\n \
+ 		{product_name:MR80X,product_ver:2.0.0,special_id:45550000}\n \
+-		{product_name:MR80X,product_ver:2.0.0,special_id:55530000}\n
++		{product_name:MR80X,product_ver:2.0.0,special_id:55530000}\n \
++		{product_name:MR3000X,product_ver:2.0.0,special_id:45550000}\n
+ endef
+ TARGET_DEVICES += mercusys_mr80x-v2
+-- 
+2.53.0
+

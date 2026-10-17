@@ -1,0 +1,66 @@
+From 71ff9aca4266dbe9dc0201d550a7b2de807dfcff Mon Sep 17 00:00:00 2001
+From: Johan Alvarado <contact@c127.dev>
+Date: Thu, 27 Aug 2026 02:17:55 -0500
+Subject: [PATCH 15/42] qualcommax: ipq50xx: fix out of bounds user PD store
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+upd[] is indexed by pd_asid, which is 1-based and reaches 3 on IPQ5018
+(spawn bits 12/20/28), but the array is only MAX_UPD (3) wide, so
+registering pd-3 writes one element past the end of struct q6_wcss.
+
+[Neanderfunk: an Kernel 6.6 / OpenWrt 24.10 angepasst: Patch aus
+qualcommax/patches-6.18 als patches-6.6/0818 übernommen; geht ohne Fuzz auf
+den 6.6-Stand von qcom_q6v5_mpd.c (auch hier laufen alle Schleifen über
+ARRAY_SIZE(wcss->upd)).]
+
+(cherry picked from commit 498ace3971089e5b09cb1ec797fcb9663cda8973)
+---
+ ...5_mpd-fix-out-of-bounds-userpd-store.patch | 34 +++++++++++++++++++
+ 1 file changed, 34 insertions(+)
+ create mode 100644 target/linux/qualcommax/patches-6.6/0818-remoteproc-qcom_q6v5_mpd-fix-out-of-bounds-userpd-store.patch
+
+diff --git a/target/linux/qualcommax/patches-6.6/0818-remoteproc-qcom_q6v5_mpd-fix-out-of-bounds-userpd-store.patch b/target/linux/qualcommax/patches-6.6/0818-remoteproc-qcom_q6v5_mpd-fix-out-of-bounds-userpd-store.patch
+new file mode 100644
+index 0000000000..7443238d8a
+--- /dev/null
++++ b/target/linux/qualcommax/patches-6.6/0818-remoteproc-qcom_q6v5_mpd-fix-out-of-bounds-userpd-store.patch
+@@ -0,0 +1,34 @@
++From: Johan Alvarado <contact@c127.dev>
++Date: Wed, 26 Aug 2026 21:30:00 -0500
++Subject: [PATCH] remoteproc: qcom_q6v5_mpd: fix out of bounds user PD store
++
++q6_register_userpd() indexes wcss->upd[] by pd_asid, which is derived
++from the user PD spawn bit as spawn_bit / 8. On IPQ5018 the three user
++PDs use smp2p spawn bits 12, 20 and 28, giving pd_asid 1, 2 and 3:
++
++  34: ... smp2p-wcss 12 Edge q6v5_wcss_userpd1_spawn-ack
++  38: ... smp2p-wcss 20 Edge q6v5_wcss_userpd2_spawn-ack
++  42: ... smp2p-wcss 28 Edge q6v5_wcss_userpd3_spawn-ack
++
++pd_asid is therefore one based and its largest value is 3, but upd[] is
++only MAX_UPD (3) entries wide, so registering the third user PD writes
++wcss->upd[3] one element past the end of the array and corrupts whatever
++follows it in struct q6_wcss.
++
++Size the array so that it can be indexed by pd_asid. Entry 0 stays
++unused, and every existing loop already walks ARRAY_SIZE(wcss->upd), so
++nothing else needs to change.
++
++Signed-off-by: Johan Alvarado <contact@c127.dev>
++---
++--- a/drivers/remoteproc/qcom_q6v5_mpd.c
+++++ b/drivers/remoteproc/qcom_q6v5_mpd.c
++@@ -34,7 +34,7 @@
++ 
++ #define BUF_SIZE			35
++ 
++-#define MAX_UPD				3
+++#define MAX_UPD				4
++ #define MAX_FIRMWARE			3
++ 
++ #define RPD_SWID		MPD_WCNSS_PAS_ID
+-- 
+2.53.0
+

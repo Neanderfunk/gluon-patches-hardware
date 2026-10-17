@@ -1,0 +1,50 @@
+From c56261db9254a183e43c4a6e9bb3bb90953a3f7b Mon Sep 17 00:00:00 2001
+From: Michael Pfeifroth <michael.pfeifroth@westermo.com>
+Date: Tue, 2 Jun 2026 13:51:04 +0200
+Subject: [PATCH 36/42] ath11k-firmware: move Download eval to top level
+
+Move the $(eval $(call Download,ath11k-legacy-firmware)) from inside
+Build/Prepare to the top level, right after the Download definition.
+
+When the eval is inside Build/Prepare, it only runs at recipe execution
+time (during compilation). This makes the legacy firmware source
+invisible to 'make download', which only evaluates Download definitions
+at Makefile parse time. As a result, offline builds fail because the
+source was never fetched during the download phase.
+
+This is consistent with how ath10k-ct-firmware handles multiple
+Download definitions (all at top level).
+
+Signed-off-by: Michael Pfeifroth <michael.pfeifroth@westermo.com>
+Link: https://github.com/openwrt/openwrt/pull/23628
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+
+(cherry picked from commit 75e7ea1b93e46154a0921f9841aa4de975436ec7)
+---
+ package/firmware/ath11k-firmware/Makefile | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/package/firmware/ath11k-firmware/Makefile b/package/firmware/ath11k-firmware/Makefile
+index cfc364215f..159ef1a4c2 100644
+--- a/package/firmware/ath11k-firmware/Makefile
++++ b/package/firmware/ath11k-firmware/Makefile
+@@ -39,6 +39,7 @@ define Download/$(ATH11K_LEGACY_FW_NAME)
+ 	MIRROR_HASH:=b55bf7204543c7ba87876e84788239b0e47ad62434c5b0d1169526cde36a9daa
+ 	SUBDIR:=$(ATH11K_LEGACY_FW_SUBDIR)
+ endef
++$(eval $(call Download,$(ATH11K_LEGACY_FW_NAME)))
+ 
+ define Package/ath11k-firmware-default
+   SECTION:=firmware
+@@ -81,8 +82,6 @@ define Build/Clean
+ endef
+ 
+ define Build/Prepare
+-	$(eval $(call Download,ath11k-legacy-firmware))
+-	
+ 	$(call Build/Prepare/Default,)
+ 
+ 	$(TAR) -C $(BUILD_DIR) -xf $(DL_DIR)/$(ATH11K_LEGACY_FW_SOURCE)
+-- 
+2.53.0
+

@@ -1,0 +1,212 @@
+From f7f325c207b6bd5a07ad5ecd8b20cc361dc3bd47 Mon Sep 17 00:00:00 2001
+From: Julius Bairaktaris <julius@bairaktaris.de>
+Date: Wed, 5 Aug 2026 12:09:47 +0200
+Subject: [PATCH 38/42] mac80211: ath11k: stop a firmware crash from rebooting
+ the SoC on AHB
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+On IPQ8074 a firmware assert reboots the SoC.
+ath11k_core_reconfigure_on_crash() frees the data path and clears the
+ring list while the DP NAPI is still polling, so the NAPI services a ring
+whose address pointer has just been cleared:
+
+  Unable to handle kernel read from unreadable memory at virtual address 0
+  pc : ath11k_hal_srng_access_begin+0xc/0x60 [ath11k]
+  Call trace:
+   ath11k_hal_srng_access_begin+0xc/0x60 [ath11k] (P)
+   ath11k_dp_rx_process_mon_rings+0xa0/0x5d4 [ath11k]
+   ath11k_dp_service_srng+0x1f4/0x348 [ath11k]
+   ath11k_ahb_ext_grp_napi_poll+0x34/0xd4 [ath11k_ahb]
+
+951 disables the interrupts on the crash path again. 950 is its
+prerequisite: it wires up the CE interrupt ops that
+ath11k_ahb_hif_ops_ipq8074 never set, which leaves the CE half of the
+quiesce a no-op on AHB. Both are in ath-next as commit a7ab5c835e42
+("wifi: ath11k: implement CE interrupt enable/disable for AHB") and
+commit f7a74e131d3f ("wifi: ath11k: disable interrupts during firmware
+crash recovery"), and are carried here verbatim.
+
+Tested on a Xiaomi AX3600 (IPQ8074 hw2.0) with the debugfs
+simulate_fw_crash assert trigger: one assert panics and reboots the SoC
+before, five asserts recover after.
+
+Assisted-by: Claude:claude-opus-5
+Signed-off-by: Julius Bairaktaris <julius@bairaktaris.de>
+Link: https://github.com/openwrt/openwrt/pull/24578
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+
+(cherry picked from commit 3ec9ced6e1fa1a17803ba2da55fe35a6ba5486cc)
+
+[Neanderfunk: an Kernel 6.6 / OpenWrt 24.10 angepasst: 950 auf
+del_timer_sync() statt timer_delete_sync() zurückgeführt, in 951 die
+Kontextzeile ath11k_cfr_deinit() entfernt (CFR gibt es in backports 6.12
+nicht), beide gegen backports 6.12.96 refresht; PKG_RELEASE 1 -> 2.
+Betrifft auch ipq807x/ipq60xx (ath11k_ahb_hif_ops_ipq8074 und der
+Crash-Pfad in core.c).]
+---
+ package/kernel/mac80211/Makefile              |  2 +-
+ ...-CE-interrupt-enable-disable-for-AHB.patch | 57 +++++++++++++++
+ ...rupts-during-firmware-crash-recovery.patch | 72 +++++++++++++++++++
+ 3 files changed, 130 insertions(+), 1 deletion(-)
+ create mode 100644 package/kernel/mac80211/patches/ath11k/950-wifi-ath11k-implement-CE-interrupt-enable-disable-for-AHB.patch
+ create mode 100644 package/kernel/mac80211/patches/ath11k/951-wifi-ath11k-disable-interrupts-during-firmware-crash-recovery.patch
+
+diff --git a/package/kernel/mac80211/Makefile b/package/kernel/mac80211/Makefile
+index 45c9397ae3..687ccea2f8 100644
+--- a/package/kernel/mac80211/Makefile
++++ b/package/kernel/mac80211/Makefile
+@@ -11,7 +11,7 @@ include $(INCLUDE_DIR)/kernel.mk
+ PKG_NAME:=mac80211
+ 
+ PKG_VERSION:=6.12.96
+-PKG_RELEASE:=1
++PKG_RELEASE:=2
+ PKG_LICENSE:=GPL-2.0-only
+ PKG_LICENSE_FILES:=COPYING
+ 
+diff --git a/package/kernel/mac80211/patches/ath11k/950-wifi-ath11k-implement-CE-interrupt-enable-disable-for-AHB.patch b/package/kernel/mac80211/patches/ath11k/950-wifi-ath11k-implement-CE-interrupt-enable-disable-for-AHB.patch
+new file mode 100644
+index 0000000000..1814ccf4ab
+--- /dev/null
++++ b/package/kernel/mac80211/patches/ath11k/950-wifi-ath11k-implement-CE-interrupt-enable-disable-for-AHB.patch
+@@ -0,0 +1,57 @@
++From a7ab5c835e4253b6577e4137367c05bfddd79fa2 Mon Sep 17 00:00:00 2001
++From: Julius Bairaktaris <julius@bairaktaris.de>
++Date: Mon, 27 Jul 2026 00:19:07 +0200
++Subject: [PATCH] wifi: ath11k: implement CE interrupt enable/disable for AHB
++
++ath11k_core_reset() calls ath11k_hif_ce_irq_disable() right before it
++powers the target down, but ath11k_ahb_hif_ops_ipq8074 never set the
++ce_irq_enable/ce_irq_disable pair, and ath11k_hif_ce_irq_disable() does
++nothing when the op is NULL. On AHB the copy engine interrupts and their
++tasklets therefore stay live across rproc_shutdown(), where the register
++space they touch is no longer accessible.
++
++Wire the ops up. The sequence is the one ath11k_ahb_stop() already runs,
++factored into a helper and reused, so behaviour on the stop path is
++unchanged. wcn6750 is not affected: it uses the pcic ops, which
++implement the pair already.
++
++Assisted-by: Claude:claude-opus-5
++Signed-off-by: Julius Bairaktaris <julius@bairaktaris.de>
++Reviewed-by: Rameshkumar Sundaram <rameshkumar.sundaram@oss.qualcomm.com>
++Reviewed-by: Baochen Qiang <baochen.qiang@oss.qualcomm.com>
++Link: https://patch.msgid.link/20260726221908.104873-2-julius@bairaktaris.de
++Signed-off-by: Jeff Johnson <jeff.johnson@oss.qualcomm.com>
++---
++ drivers/net/wireless/ath/ath11k/ahb.c | 9 ++++++++-
++ 1 file changed, 8 insertions(+), 1 deletion(-)
++
++--- a/drivers/net/wireless/ath/ath11k/ahb.c
+++++ b/drivers/net/wireless/ath/ath11k/ahb.c
++@@ -400,12 +400,17 @@ static void ath11k_ahb_ext_irq_disable(s
++ 	ath11k_ahb_sync_ext_irqs(ab);
++ }
++ 
++-static void ath11k_ahb_stop(struct ath11k_base *ab)
+++static void ath11k_ahb_ce_irq_disable_sync(struct ath11k_base *ab)
++ {
++ 	if (!test_bit(ATH11K_FLAG_CRASH_FLUSH, &ab->dev_flags))
++ 		ath11k_ahb_ce_irqs_disable(ab);
++ 	ath11k_ahb_sync_ce_irqs(ab);
++ 	ath11k_ahb_kill_tasklets(ab);
+++}
+++
+++static void ath11k_ahb_stop(struct ath11k_base *ab)
+++{
+++	ath11k_ahb_ce_irq_disable_sync(ab);
++ 	del_timer_sync(&ab->rx_replenish_retry);
++ 	ath11k_ce_cleanup_pipes(ab);
++ }
++@@ -795,6 +800,8 @@ static const struct ath11k_hif_ops ath11
++ 	.map_service_to_pipe = ath11k_ahb_map_service_to_pipe,
++ 	.power_down = ath11k_ahb_power_down,
++ 	.power_up = ath11k_ahb_power_up,
+++	.ce_irq_enable = ath11k_ahb_ce_irqs_enable,
+++	.ce_irq_disable = ath11k_ahb_ce_irq_disable_sync,
++ };
++ 
++ static const struct ath11k_hif_ops ath11k_ahb_hif_ops_wcn6750 = {
+diff --git a/package/kernel/mac80211/patches/ath11k/951-wifi-ath11k-disable-interrupts-during-firmware-crash-recovery.patch b/package/kernel/mac80211/patches/ath11k/951-wifi-ath11k-disable-interrupts-during-firmware-crash-recovery.patch
+new file mode 100644
+index 0000000000..c2908cff8d
+--- /dev/null
++++ b/package/kernel/mac80211/patches/ath11k/951-wifi-ath11k-disable-interrupts-during-firmware-crash-recovery.patch
+@@ -0,0 +1,72 @@
++From f7a74e131d3f0de04335dbe278bfb82bdafcdb3e Mon Sep 17 00:00:00 2001
++From: Julius Bairaktaris <julius@bairaktaris.de>
++Date: Mon, 27 Jul 2026 00:19:08 +0200
++Subject: [PATCH] wifi: ath11k: disable interrupts during firmware crash recovery
++
++On IPQ8074 a firmware assert reboots the SoC:
++
++  Unable to handle kernel read from unreadable memory at virtual address 0
++  pc : ath11k_hal_srng_access_begin+0xc/0x60 [ath11k]
++  lr : ath11k_dp_rx_process_mon_status+0x15c/0xd84 [ath11k]
++  Call trace:
++   ath11k_hal_srng_access_begin+0xc/0x60 [ath11k]
++   ath11k_dp_rx_process_mon_rings+0xa0/0x5d4 [ath11k]
++   ath11k_dp_service_srng+0x1f4/0x348 [ath11k]
++   ath11k_ahb_ext_grp_napi_poll+0x34/0xd4 [ath11k_ahb]
++   __napi_poll+0x38/0x188
++   net_rx_action+0x120/0x2c0
++
++ath11k_core_reconfigure_on_crash() tears the data path down with
++ath11k_dp_pdev_free(), ath11k_dp_free() and ath11k_hal_srng_clear(),
++which memsets the ring list. The DP NAPI is still running while that
++happens, so it services a ring whose address pointer has just been
++cleared.
++
++That function used to disable the interrupts first, until
++commit d455e805de70 ("wifi: ath11k: rearrange IRQ enable/disable in reset path")
++moved the disable into ath11k_core_reset(). reset_work is only queued
++from mhi.c and from the debugfs hw-restart handler, so AHB parts never
++run it on a real firmware crash. Their recovery goes QMI server exit ->
++restart_work -> ath11k_core_reconfigure_on_crash() ->
++ath11k_core_qmi_firmware_ready(), and nothing disables the interrupts
++anywhere along it.
++
++Disable them again on the crash path. The reset path has already done
++so by the time it gets here, hence the ab->is_reset check.
++
++This is also why the debugfs hw-restart trigger never showed the
++problem: it goes through ath11k_core_reset(), the one path that still
++had the disable.
++
++Tested-on: IPQ8074 hw2.0 AHB WLAN.HK.2.12-01460-QCAHKSWPL_SILICONZ-1
++
++Fixes: d455e805de70 ("wifi: ath11k: rearrange IRQ enable/disable in reset path")
++Assisted-by: Claude:claude-opus-5
++Signed-off-by: Julius Bairaktaris <julius@bairaktaris.de>
++Reviewed-by: Rameshkumar Sundaram <rameshkumar.sundaram@oss.qualcomm.com>
++Reviewed-by: Baochen Qiang <baochen.qiang@oss.qualcomm.com>
++Link: https://patch.msgid.link/20260726221908.104873-3-julius@bairaktaris.de
++Signed-off-by: Jeff Johnson <jeff.johnson@oss.qualcomm.com>
++---
++ drivers/net/wireless/ath/ath11k/core.c | 10 ++++++++++
++ 1 file changed, 10 insertions(+)
++
++--- a/drivers/net/wireless/ath/ath11k/core.c
+++++ b/drivers/net/wireless/ath/ath11k/core.c
++@@ -2062,6 +2062,16 @@ static int ath11k_core_reconfigure_on_cr
++ 
++ 	mutex_lock(&ab->core_lock);
++ 	ath11k_thermal_unregister(ab);
+++
+++	/*
+++	 * ath11k_core_reset() already disabled the interrupts on the reset
+++	 * path; only the firmware crash path reaches here with them live.
+++	 */
+++	if (!ab->is_reset) {
+++		ath11k_hif_irq_disable(ab);
+++		ath11k_hif_ce_irq_disable(ab);
+++	}
+++
++ 	ath11k_dp_pdev_free(ab);
++ 	ath11k_spectral_deinit(ab);
++ 	ath11k_ce_cleanup_pipes(ab);
+-- 
+2.53.0
+

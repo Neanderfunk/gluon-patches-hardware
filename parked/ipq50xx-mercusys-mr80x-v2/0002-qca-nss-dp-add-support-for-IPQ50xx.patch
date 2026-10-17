@@ -1,0 +1,388 @@
+From 25fb7df0f68ebb5afafaf182ec8a562e70a8cdf6 Mon Sep 17 00:00:00 2001
+From: George Moussalem <george.moussalem@outlook.com>
+Date: Mon, 7 Oct 2024 10:42:07 +0400
+Subject: [PATCH 02/42] qca-nss-dp: add support for IPQ50xx
+
+Add support for the Qualcomm IPQ50xx in the QCA NSS dataplane driver.
+The QCA implementation uses depracated DMA api calls and a downstream SCM
+call, so convert to proper Linux DMA and SCM api calls.
+In addition, add fixed-link support to support SGMII which is used to
+connect the internal IPQ50xx switch to an external switch (ex. QCA8337)
+
+Co-developed-by: Ziyang Huang <hzyitc@outlook.com>
+Signed-off-by: Ziyang Huang <hzyitc@outlook.com>
+Signed-off-by: George Moussalem <george.moussalem@outlook.com>
+Link: https://github.com/openwrt/openwrt/pull/17182
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+
+(cherry picked from commit 39750798f7ad9f8e0b999eee999bceb38138763e)
+---
+ ...012-01-syn-gmac-use-standard-DMA-api.patch | 245 ++++++++++++++++++
+ ...e-corrent-scm-function-to-write-tcsr.patch |  46 ++++
+ .../0013-nss_dp_main-support-fixed-link.patch |  49 ++++
+ 3 files changed, 340 insertions(+)
+ create mode 100644 package/kernel/qca-nss-dp/patches/0012-01-syn-gmac-use-standard-DMA-api.patch
+ create mode 100644 package/kernel/qca-nss-dp/patches/0012-02-ipq50xx-use-corrent-scm-function-to-write-tcsr.patch
+ create mode 100644 package/kernel/qca-nss-dp/patches/0013-nss_dp_main-support-fixed-link.patch
+
+diff --git a/package/kernel/qca-nss-dp/patches/0012-01-syn-gmac-use-standard-DMA-api.patch b/package/kernel/qca-nss-dp/patches/0012-01-syn-gmac-use-standard-DMA-api.patch
+new file mode 100644
+index 0000000000..882bc8cad9
+--- /dev/null
++++ b/package/kernel/qca-nss-dp/patches/0012-01-syn-gmac-use-standard-DMA-api.patch
+@@ -0,0 +1,245 @@
++From 5ad8cf24897ff903112967a9662cb13ed4cbbf57 Mon Sep 17 00:00:00 2001
++From: Ziyang Huang <hzyitc@outlook.com>
++Date: Mon, 22 Apr 2024 21:47:58 +0800
++Subject: [PATCH] syn-gmac: use standard DMA api
++
++The SSDK uses several old DMA API calls based on raw assembly which have 
++been deprecated. So let's convert to and use the standard Linux DMA API 
++instead.
++
++Signed-off-by: Ziyang Huang <hzyitc@outlook.com>
++Signed-off-by: George Moussalem <george.moussalem@outlook.com>
++---
++ hal/dp_ops/syn_gmac_dp/syn_dp_cfg_rx.c | 14 ++++++--
++ hal/dp_ops/syn_gmac_dp/syn_dp_cfg_tx.c |  2 ++
++ hal/dp_ops/syn_gmac_dp/syn_dp_rx.c     | 47 +++++++++++++-------------
++ hal/dp_ops/syn_gmac_dp/syn_dp_tx.c     | 23 ++++---------
++ 4 files changed, 42 insertions(+), 44 deletions(-)
++
++diff --git a/hal/dp_ops/syn_gmac_dp/syn_dp_cfg_rx.c b/hal/dp_ops/syn_gmac_dp/syn_dp_cfg_rx.c
++index 8cbbcaaf..1c9006c7 100644
++--- a/hal/dp_ops/syn_gmac_dp/syn_dp_cfg_rx.c
+++++ b/hal/dp_ops/syn_gmac_dp/syn_dp_cfg_rx.c
++@@ -26,6 +26,7 @@ static int syn_dp_cfg_rx_setup_desc_queue(struct syn_dp_info *dev_info)
++ {
++ 	struct syn_dp_info_rx *rx_info = &dev_info->dp_info_rx;
++ 	struct dma_desc_rx *first_desc = NULL;
+++	dma_addr_t dma_addr;
++ 	struct net_device *netdev = rx_info->netdev;
++ 
++ 	netdev_dbg(netdev, "Total size of memory required for Rx Descriptors in Ring Mode = %u\n", (uint32_t)((sizeof(struct dma_desc_rx) * SYN_DP_RX_DESC_SIZE)));
++@@ -33,13 +34,15 @@ static int syn_dp_cfg_rx_setup_desc_queue(struct syn_dp_info *dev_info)
++ 	/*
++ 	 * Allocate cacheable descriptors for Rx
++ 	 */
++-	first_desc = kzalloc(sizeof(struct dma_desc_rx) * SYN_DP_RX_DESC_SIZE, GFP_KERNEL);
+++	first_desc = dma_alloc_coherent(rx_info->dev,
+++					sizeof(struct dma_desc_rx) * SYN_DP_RX_DESC_SIZE,
+++					&dma_addr, GFP_KERNEL);
++ 	if (!first_desc) {
++ 		netdev_dbg(netdev, "Error in Rx Descriptor Memory allocation in Ring mode\n");
++ 		return -ENOMEM;
++ 	}
++ 
++-	dev_info->rx_desc_dma_addr = (dma_addr_t)virt_to_phys(first_desc);
+++	dev_info->rx_desc_dma_addr = dma_addr;
++ 	rx_info->rx_desc = first_desc;
++ 	syn_dp_gmac_rx_desc_init_ring(rx_info->rx_desc, SYN_DP_RX_DESC_SIZE);
++ 
++@@ -98,6 +101,10 @@ void syn_dp_cfg_rx_cleanup_rings(struct syn_dp_info *dev_info)
++ 	for (i = 0; i < rx_info->busy_rx_desc_cnt; i++) {
++ 		rx_skb_index = (rx_skb_index + i) & SYN_DP_RX_DESC_MAX_INDEX;
++ 		rxdesc = rx_info->rx_desc;
+++
+++		dma_unmap_single(rx_info->dev, rxdesc->buffer1,
+++				 rxdesc->length, DMA_FROM_DEVICE);
+++
++ 		skb = rx_info->rx_buf_pool[rx_skb_index].skb;
++ 		if (unlikely(skb != NULL)) {
++ 			dev_kfree_skb_any(skb);
++@@ -105,7 +112,8 @@ void syn_dp_cfg_rx_cleanup_rings(struct syn_dp_info *dev_info)
++ 		}
++ 	}
++ 
++-	kfree(rx_info->rx_desc);
+++	dma_free_coherent(rx_info->dev, (sizeof(struct dma_desc_rx) * SYN_DP_RX_DESC_SIZE),
+++			  rx_info->rx_desc, dev_info->rx_desc_dma_addr);
++ 	rx_info->rx_desc = NULL;
++ 	dev_info->rx_desc_dma_addr = (dma_addr_t)0;
++ }
++diff --git a/hal/dp_ops/syn_gmac_dp/syn_dp_cfg_tx.c b/hal/dp_ops/syn_gmac_dp/syn_dp_cfg_tx.c
++index bf5e19a0..284e8880 100644
++--- a/hal/dp_ops/syn_gmac_dp/syn_dp_cfg_tx.c
+++++ b/hal/dp_ops/syn_gmac_dp/syn_dp_cfg_tx.c
++@@ -91,6 +91,8 @@ void syn_dp_cfg_tx_cleanup_rings(struct syn_dp_info *dev_info)
++ 		tx_skb_index = syn_dp_tx_inc_index(tx_skb_index, i);
++ 		txdesc = tx_info->tx_desc;
++ 
+++		dma_unmap_single(tx_info->dev, txdesc->buffer1, txdesc->length, DMA_TO_DEVICE);
+++
++ 		skb = tx_info->tx_buf_pool[tx_skb_index].skb;
++ 		if (unlikely(skb != NULL)) {
++ 			dev_kfree_skb_any(skb);
++diff --git a/hal/dp_ops/syn_gmac_dp/syn_dp_rx.c b/hal/dp_ops/syn_gmac_dp/syn_dp_rx.c
++index 1ddeb7d6..1798d4e7 100644
++--- a/hal/dp_ops/syn_gmac_dp/syn_dp_rx.c
+++++ b/hal/dp_ops/syn_gmac_dp/syn_dp_rx.c
++@@ -73,16 +73,6 @@ static inline void syn_dp_rx_refill_one_desc(struct dma_desc_rx *rx_desc,
++  */
++ static inline void syn_dp_rx_inval_and_flush(struct syn_dp_info_rx *rx_info, uint32_t start, uint32_t end)
++ {
++-	/*
++-	 * Batched flush and invalidation of the rx descriptors
++-	 */
++-	if (end > start) {
++-		dmac_flush_range_no_dsb((void *)&rx_info->rx_desc[start], (void *)&rx_info->rx_desc[end] + sizeof(struct dma_desc_rx));
++-	} else {
++-		dmac_flush_range_no_dsb((void *)&rx_info->rx_desc[start], (void *)&rx_info->rx_desc[SYN_DP_RX_DESC_MAX_INDEX] + sizeof(struct dma_desc_rx));
++-		dmac_flush_range_no_dsb((void *)&rx_info->rx_desc[0], (void *)&rx_info->rx_desc[end] + sizeof(struct dma_desc_rx));
++-	}
++-
++ 	dsb(st);
++ }
++ 
++@@ -124,15 +114,19 @@ int syn_dp_rx_refill_page_mode(struct syn_dp_info_rx *rx_info)
++ 			break;
++ 		}
++ 
+++		skb_fill_page_desc(skb, 0, pg, 0, PAGE_SIZE);
+++
++ 		/*
++ 		 * Get virtual address of allocated page.
++ 		 */
++ 		page_addr = page_address(pg);
++-		dma_addr = (dma_addr_t)virt_to_phys(page_addr);
++-
++-		skb_fill_page_desc(skb, 0, pg, 0, PAGE_SIZE);
+++		dma_addr  = dma_map_page(rx_info->dev, pg, 0, PAGE_SIZE, DMA_FROM_DEVICE);
+++		if (unlikely(dma_mapping_error(rx_info->dev, dma_addr))) {
+++			dev_kfree_skb(skb);
+++			netdev_dbg(netdev, "DMA mapping failed for empty buffer\n");
+++			break;
+++		}
++ 
++-		dmac_inv_range_no_dsb(page_addr, (page_addr + PAGE_SIZE));
++ 		rx_refill_idx = rx_info->rx_refill_idx;
++ 		rx_desc = rx_info->rx_desc + rx_refill_idx;
++ 
++@@ -181,8 +175,15 @@ int syn_dp_rx_refill(struct syn_dp_info_rx *rx_info)
++ 
++ 		skb_reserve(skb, SYN_DP_SKB_HEADROOM + NET_IP_ALIGN);
++ 
++-		dma_addr = (dma_addr_t)virt_to_phys(skb->data);
++-		dmac_inv_range_no_dsb((void *)skb->data, (void *)(skb->data + inval_len));
+++		dma_addr = dma_map_single(rx_info->dev, skb->data,
+++		                          inval_len,
+++		                          DMA_FROM_DEVICE);
+++		if (unlikely(dma_mapping_error(rx_info->dev, dma_addr))) {
+++			dev_kfree_skb(skb);
+++			netdev_dbg(netdev, "DMA mapping failed for empty buffer\n");
+++			break;
+++		}
+++
++ 		rx_refill_idx = rx_info->rx_refill_idx;
++ 		rx_desc = rx_info->rx_desc + rx_refill_idx;
++ 
++@@ -407,12 +408,6 @@ int syn_dp_rx(struct syn_dp_info_rx *rx_info, int budget)
++ 	 * this code is executing.
++ 	 */
++ 	end = syn_dp_rx_inc_index(rx_info->rx_idx, busy);
++-	if (end > start) {
++-		dmac_inv_range_no_dsb((void *)&rx_info->rx_desc[start], (void *)&rx_info->rx_desc[end] + sizeof(struct dma_desc_rx));
++-	} else {
++-		dmac_inv_range_no_dsb((void *)&rx_info->rx_desc[start], (void *)&rx_info->rx_desc[SYN_DP_RX_DESC_MAX_INDEX] + sizeof(struct dma_desc_rx));
++-		dmac_inv_range_no_dsb((void *)&rx_info->rx_desc[0], (void *)&rx_info->rx_desc[end] + sizeof(struct dma_desc_rx));
++-	}
++ 
++ 	dsb(st);
++ 
++@@ -439,8 +434,12 @@ int syn_dp_rx(struct syn_dp_info_rx *rx_info, int budget)
++ 		 * speculative prefetch by CPU may have occurred.
++ 		 */
++ 		frame_length = syn_dp_gmac_get_rx_desc_frame_length(status);
++-		dmac_inv_range((void *)rx_buf->map_addr_virt,
++-			(void *)(((uint8_t *)rx_buf->map_addr_virt) + frame_length));
+++		if (likely(!rx_info->page_mode))
+++			dma_unmap_single(rx_info->dev, rx_desc->buffer1,
+++			                 rx_info->alloc_buf_len, DMA_FROM_DEVICE);
+++		else
+++			dma_unmap_page(rx_info->dev, rx_desc->buffer1,
+++			               PAGE_SIZE, DMA_FROM_DEVICE);
++ 		prefetch((void *)rx_buf->map_addr_virt);
++ 
++ 		rx_next_idx = syn_dp_rx_inc_index(rx_idx, 1);
++diff --git a/hal/dp_ops/syn_gmac_dp/syn_dp_tx.c b/hal/dp_ops/syn_gmac_dp/syn_dp_tx.c
++index c97e252b..6d4adb3f 100644
++--- a/hal/dp_ops/syn_gmac_dp/syn_dp_tx.c
+++++ b/hal/dp_ops/syn_gmac_dp/syn_dp_tx.c
++@@ -104,9 +104,7 @@ static inline struct dma_desc_tx *syn_dp_tx_process_nr_frags(struct syn_dp_info_
++ 		BUG_ON(!length);
++ #endif
++ 
++-		dma_addr = (dma_addr_t)virt_to_phys(frag_addr);
++-
++-		dmac_clean_range_no_dsb(frag_addr, frag_addr + length);
+++		dma_addr = dma_map_single(tx_info->dev, frag_addr, length, DMA_TO_DEVICE);
++ 
++ 		*total_length += length;
++ 		tx_desc = syn_dp_tx_set_desc_sg(tx_info, dma_addr, length, DESC_OWN_BY_DMA);
++@@ -150,8 +148,7 @@ int syn_dp_tx_nr_frags(struct syn_dp_info_tx *tx_info, struct sk_buff *skb)
++ 	/*
++ 	 * Flush the dma for non-paged skb data
++ 	 */
++-	dma_addr = (dma_addr_t)virt_to_phys(skb->data);
++-	dmac_clean_range_no_dsb((void *)skb->data, (void *)(skb->data + length));
+++	dma_addr = dma_map_single(tx_info->dev, skb->data, length, DMA_TO_DEVICE);
++ 
++ 	total_len = length;
++ 
++@@ -256,12 +253,7 @@ int syn_dp_tx_frag_list(struct syn_dp_info_tx *tx_info, struct sk_buff *skb)
++ 		return NETDEV_TX_BUSY;
++ 	}
++ 
++-	dma_addr = (dma_addr_t)virt_to_phys(skb->data);
++-
++-	/*
++-	 * Flush the data area of the head skb
++-	 */
++-	dmac_clean_range_no_dsb((void *)skb->data, (void *)(skb->data + length));
+++	dma_addr = dma_map_single(tx_info->dev, skb->data, length, DMA_TO_DEVICE);
++ 
++ 	total_len = length;
++ 
++@@ -290,9 +282,7 @@ int syn_dp_tx_frag_list(struct syn_dp_info_tx *tx_info, struct sk_buff *skb)
++ 		BUG_ON(!length);
++ #endif
++ 
++-		dma_addr = (dma_addr_t)virt_to_phys(iter_skb->data);
++-
++-		dmac_clean_range_no_dsb((void *)iter_skb->data, (void *)(iter_skb->data + length));
+++		dma_addr = dma_map_single(tx_info->dev, iter_skb->data, length, DMA_TO_DEVICE);
++ 
++ 		total_len += length;
++ 
++@@ -445,6 +435,7 @@ int syn_dp_tx_complete(struct syn_dp_info_tx *tx_info, int budget)
++ 			break;
++ 		}
++ 
+++		dma_unmap_single(tx_info->dev, desc->buffer1, desc->length, DMA_TO_DEVICE);
++ 
++ 		if (likely(status & DESC_TX_LAST)) {
++ 			tx_skb_index = syn_dp_tx_comp_index_get(tx_info);
++@@ -571,9 +562,7 @@ int syn_dp_tx(struct syn_dp_info_tx *tx_info, struct sk_buff *skb)
++ 		return NETDEV_TX_BUSY;
++ 	}
++ 
++-	dma_addr = (dma_addr_t)virt_to_phys(skb->data);
++-
++-	dmac_clean_range_no_dsb((void *)skb->data, (void *)(skb->data + skb->len));
+++	dma_addr = dma_map_single(tx_info->dev, skb->data, skb->len, DMA_TO_DEVICE);
++ 
++ 	/*
++ 	 * Queue packet to the GMAC rings
++-- 
++2.40.1
++
+diff --git a/package/kernel/qca-nss-dp/patches/0012-02-ipq50xx-use-corrent-scm-function-to-write-tcsr.patch b/package/kernel/qca-nss-dp/patches/0012-02-ipq50xx-use-corrent-scm-function-to-write-tcsr.patch
+new file mode 100644
+index 0000000000..10a8eef6da
+--- /dev/null
++++ b/package/kernel/qca-nss-dp/patches/0012-02-ipq50xx-use-corrent-scm-function-to-write-tcsr.patch
+@@ -0,0 +1,46 @@
++From ba430b1a512dc1972807a1dd5a8d31a78ac572ff Mon Sep 17 00:00:00 2001
++From: Ziyang Huang <hzyitc@outlook.com>
++Date: Mon, 22 Apr 2024 21:49:18 +0800
++Subject: [PATCH] ipq50xx: use corrent scm function to write tcsr
++
++QCA leverages its own API function to write to the TCSR register space, 
++not available upstream. As such, convert to the upstream qcom SCM IO 
++write function.
++
++Signed-off-by: Ziyang Huang <hzyitc@outlook.com>
++Signed-off-by: George Moussalem <george.moussalem@outlook.com>
++---
++ hal/soc_ops/ipq50xx/nss_ipq50xx.c | 9 ++-------
++ 1 file changed, 2 insertions(+), 7 deletions(-)
++
++diff --git a/hal/soc_ops/ipq50xx/nss_ipq50xx.c b/hal/soc_ops/ipq50xx/nss_ipq50xx.c
++index 3e4491c0..e56de1cc 100644
++--- a/hal/soc_ops/ipq50xx/nss_ipq50xx.c
+++++ b/hal/soc_ops/ipq50xx/nss_ipq50xx.c
++@@ -18,7 +18,7 @@
++ 
++ #include <linux/of.h>
++ #include <linux/ioport.h>
++-#include <linux/qcom_scm.h>
+++#include <linux/firmware/qcom/qcom_scm.h>
++ #include "nss_dp_hal.h"
++ 
++ /*
++@@ -78,13 +78,8 @@ static void nss_dp_hal_tcsr_set(void)
++ 	 * If TZ is not enabled, we can write to the register directly.
++ 	 */
++ 	if (qcom_scm_is_available()) {
++-#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 4, 0))
++-		err = qcom_scm_tcsr_reg_write((tcsr_base + TCSR_GMAC_AXI_CACHE_OVERRIDE_OFFSET),
+++		err = qcom_scm_io_writel((tcsr_base + TCSR_GMAC_AXI_CACHE_OVERRIDE_OFFSET),
++ 						TCSR_GMAC_AXI_CACHE_OVERRIDE_VALUE);
++-#else
++-		err = qti_scm_tcsr_reg_write((tcsr_base + TCSR_GMAC_AXI_CACHE_OVERRIDE_OFFSET),
++-						TCSR_GMAC_AXI_CACHE_OVERRIDE_VALUE);
++-#endif
++ 		if (err) {
++ 			pr_err("%s: SCM TCSR write error: %d\n", __func__, err);
++ 		}
++-- 
++2.40.1
++
+diff --git a/package/kernel/qca-nss-dp/patches/0013-nss_dp_main-support-fixed-link.patch b/package/kernel/qca-nss-dp/patches/0013-nss_dp_main-support-fixed-link.patch
+new file mode 100644
+index 0000000000..668046881a
+--- /dev/null
++++ b/package/kernel/qca-nss-dp/patches/0013-nss_dp_main-support-fixed-link.patch
+@@ -0,0 +1,49 @@
++From 309a1a330ccaa103a7648e944d97a0032116b338 Mon Sep 17 00:00:00 2001
++From: Ziyang Huang <hzyitc@outlook.com>
++Date: Mon, 22 Apr 2024 21:50:39 +0800
++Subject: [PATCH] nss_dp_main: support fixed-link
++
++Add support for "fixed link" to support ethernet MACs which are not 
++connected to an MDIO managed PHY. For example, IPQ5018 has two internal 
++MACs, one connected to a GE PHY and the other connected to a Uniphy to 
++support connections to an external switch over a fixed link. As such, 
++check for a fixed link in absence of a phy-handle and return an error 
++when no phy-handle and fixed link is found.
++
++Signed-off-by: Ziyang Huang <hzyitc@outlook.com>
++Signed-off-by: George Moussalem <george.moussalem@outlook.com>
++---
++ nss_dp_main.c | 15 ++++++++++++---
++ 1 file changed, 12 insertions(+), 3 deletions(-)
++
++diff --git a/nss_dp_main.c b/nss_dp_main.c
++index 9a09edd5..204063bf 100644
++--- a/nss_dp_main.c
+++++ b/nss_dp_main.c
++@@ -619,11 +619,20 @@ static int32_t nss_dp_of_get_pdata(struct device_node *np,
++ 	}
++ 
++ 	dp_priv->phy_node = of_parse_phandle(np, "phy-handle", 0);
++-	if (!dp_priv->phy_node) {
++-		pr_err("%s: error parsing phy-handle\n", np->name);
++-		return -EFAULT;
+++	if(!dp_priv->phy_node) {
+++		if(of_phy_is_fixed_link(np)) {
+++			int ret = of_phy_register_fixed_link(np);
+++			if(ret < 0) {
+++				pr_err("%s: fail to register fixed-link: %d\n", np->name, ret);
+++				return -EFAULT;
+++			}
+++		}
+++		dp_priv->phy_node = of_node_get(np);
++ 	}
++ 
+++	if(!dp_priv->phy_node)
+++		pr_err("%s: no phy-handle or fixed-link found\n", np->name);
+++
++ 	if (of_property_read_u32(np, "qcom,mactype", &hal_pdata->mactype)) {
++ 		pr_err("%s: error reading mactype\n", np->name);
++ 		return -EFAULT;
++-- 
++2.40.1
++
+-- 
+2.53.0
+

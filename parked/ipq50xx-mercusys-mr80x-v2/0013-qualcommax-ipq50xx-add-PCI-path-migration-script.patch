@@ -1,0 +1,88 @@
+From b7c2b108bef7c6d28df17e182e19aeda3e1f32d5 Mon Sep 17 00:00:00 2001
+From: Robert Marko <robimarko@gmail.com>
+Date: Tue, 13 May 2025 13:19:22 +0200
+Subject: [PATCH 13/42] qualcommax: ipq50xx: add PCI path migration script
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+PCI paths of IPQ50xx devices have changed now that linux,pci-domain is set
+in the DTSI, so add a migration script for wireless config.
+
+Link: https://github.com/openwrt/openwrt/pull/18789
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+
+[Neanderfunk: an Kernel 6.6 / OpenWrt 24.10 angepasst: ohne die Einträge für
+Linksys MR5500/MX5500/SPNMX56 (Geräte nicht in dieser Serie); Skript als
+Gerüst für Geräte, deren PCI-Pfad sich durch linux,pci-domain geändert hat.]
+
+(cherry picked from commit 9d15c1a020f77cafb2b86f94045418767047095a)
+---
+ .../etc/hotplug.d/ieee80211/05-wifi-migrate   | 55 +++++++++++++++++++
+ 1 file changed, 55 insertions(+)
+ create mode 100644 target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/ieee80211/05-wifi-migrate
+
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/ieee80211/05-wifi-migrate b/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/ieee80211/05-wifi-migrate
+new file mode 100644
+index 0000000000..6e058532d7
+--- /dev/null
++++ b/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/ieee80211/05-wifi-migrate
+@@ -0,0 +1,55 @@
++#!/bin/sh
++
++# This must run before 10-wifi-detect
++
++[ "${ACTION}" = "add" ] || return
++
++. /lib/functions.sh
++
++check_radio()
++{
++	local cfg="$1" to="$2"
++
++	config_get path "$cfg" path
++
++	[ "$path" = "$to" ] && PATH_EXISTS=true
++}
++
++do_migrate_radio()
++{
++	local cfg="$1" from="$2" to="$3"
++
++	config_get path "$cfg" path
++
++	[ "$path" = "$from" ] || return
++
++	uci set "wireless.${cfg}.path=${to}"
++	WIRELESS_CHANGED=true
++
++	logger -t wifi-migrate "Updated path of wireless.${cfg} from '${from}' to '${to}'"
++}
++
++migrate_radio()
++{
++	local from="$1" to="$2"
++
++	config_load wireless
++
++	# Check if there is already a section with the target path: In this case, the system
++	# was already upgraded to a version without this migration script before; better bail out,
++	# as we can't be sure we don't break more than we fix.
++	PATH_EXISTS=false
++	config_foreach check_radio wifi-device "$to"
++	$PATH_EXISTS && return
++
++	config_foreach do_migrate_radio wifi-device "$from" "$to"
++}
++
++WIRELESS_CHANGED=false
++
++case "$(board_name)" in
++esac
++
++$WIRELESS_CHANGED && uci commit wireless
++
++exit 0
+-- 
+2.53.0
+

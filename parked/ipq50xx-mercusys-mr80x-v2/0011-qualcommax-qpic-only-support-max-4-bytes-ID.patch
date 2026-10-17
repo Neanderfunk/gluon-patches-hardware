@@ -1,0 +1,66 @@
+From 8dea1c6d991a58195942196e4cfdd194cf18a5e0 Mon Sep 17 00:00:00 2001
+From: Ziyang Huang <hzyitc@outlook.com>
+Date: Tue, 2 Dec 2025 22:28:10 +0800
+Subject: [PATCH 11/42] qualcommax: qpic only support max 4 bytes ID
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+QPIC use a reg (NAND_READ_ID) to transport the ID, so the max bytes of ID is a word (4Bytes).
+
+https://github.com/torvalds/linux/blob/3a8660878839faadb4f1a6dd72c3179c1df56787/drivers/mtd/nand/raw/qcom_nandc.c#L1783
+https://github.com/torvalds/linux/blob/4a26e7032d7d57c998598c08a034872d6f0d3945/drivers/spi/spi-qpic-snand.c#L1392-L1393
+
+Signed-off-by: Ziyang Huang <hzyitc@outlook.com>
+Link: https://github.com/openwrt/openwrt/pull/21021
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+
+[Neanderfunk: an Kernel 6.6 / OpenWrt 24.10 angepasst: nur der SPI-NAND-Teil
+(spinand core.c) übernommen, als 0424 in der 6.6-Fassung aus 34d9172655
+(dort 0412, gleicher Inhalt). Der raw-NAND-Teil (nand_base.c) und die
+Änderung an 0400 (TH58NYG3S0HBAI4) entfallen, damit raw NAND (ipq807x)
+unverändert bleibt. Grund: 6.6.151 kennt die ESMT-IDs mit 5 Bytes
+(F50D1G41LB: c8 11 7f 7f 7f), QPIC liefert nur 4 Bytes; ohne den Patch
+scheitert die Erkennung dieses Flashs (MR80X v2) wie in main unter 6.12
+beobachtet: "unknown raw ID c8117f7f00" (siehe 0055-v6.16 in 92c7feebd2).]
+
+(cherry picked from commit 92c7feebd2647c482a6597e7d799109c5e4aee7d)
+---
+ ...and-qpic-only-support-max-4-bytes-ID.patch | 25 +++++++++++++++++++
+ 1 file changed, 25 insertions(+)
+ create mode 100644 target/linux/qualcommax/patches-6.6/0424-mtd-spinand-qpic-only-support-max-4-bytes-ID.patch
+
+diff --git a/target/linux/qualcommax/patches-6.6/0424-mtd-spinand-qpic-only-support-max-4-bytes-ID.patch b/target/linux/qualcommax/patches-6.6/0424-mtd-spinand-qpic-only-support-max-4-bytes-ID.patch
+new file mode 100644
+index 0000000000..2b80c5b5e1
+--- /dev/null
++++ b/target/linux/qualcommax/patches-6.6/0424-mtd-spinand-qpic-only-support-max-4-bytes-ID.patch
+@@ -0,0 +1,25 @@
++From 3d550dc3eb4eaa2fe1d0668ed67e835c91487d61 Mon Sep 17 00:00:00 2001
++From: Ziyang Huang <hzyitc@outlook.com>
++Date: Sun, 8 Sep 2024 16:40:11 +0800
++Subject: [PATCH 2/2] mtd: spinand: qpic only support max 4 bytes ID
++
++The QPIC SPI NAND controller supports a max of 4 bytes of device ID.
++As such, set a maximum of 4 bytes.
++
++Signed-off-by: Ziyang Huang <hzyitc@outlook.com>
++Signed-off-by: George Moussalem <george.moussalem@outlook.com>
++---
++ drivers/mtd/nand/spi/core.c | 2 +-
++ 1 file changed, 1 insertion(+), 1 deletion(-)
++
++--- a/drivers/mtd/nand/spi/core.c
+++++ b/drivers/mtd/nand/spi/core.c
++@@ -1094,7 +1094,7 @@ int spinand_match_and_init(struct spinand_device *spinand,
++ 		if (rdid_method != info->devid.method)
++ 			continue;
++ 
++-		if (memcmp(id + 1, info->devid.id, info->devid.len))
+++		if (memcmp(id + 1, info->devid.id, min(3, info->devid.len)))
++ 			continue;
++ 
++ 		nand->memorg = table[i].memorg;
+-- 
+2.53.0
+

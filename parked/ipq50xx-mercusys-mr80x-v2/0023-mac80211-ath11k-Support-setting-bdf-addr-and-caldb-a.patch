@@ -1,0 +1,98 @@
+From 76702cae6473f2bd76d8540344b42005fac39c99 Mon Sep 17 00:00:00 2001
+From: George Moussalem <george.moussalem@outlook.com>
+Date: Mon, 7 Oct 2024 15:31:17 +0400
+Subject: [PATCH 23/42] mac80211: ath11k: Support setting bdf-addr and
+ caldb-addr via DT
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+IPQ5018 uses different BDF and caldb addresses for vairous boards,
+so let's support reading these addresses from the device tree.
+
+Signed-off-by: Ziyang Huang <hzyitc@outlook.com>
+Signed-off-by: George Moussalem <george.moussalem@outlook.com>
+Link: https://github.com/openwrt/openwrt/pull/17182
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+
+(cherry picked from commit 432f2f83decb826df7e20324919a32bd4491f862)
+
+[Neanderfunk: an Kernel 6.6 / OpenWrt 24.10 angepasst: Patch in der
+Fassung von main 8dbbca029d^ (backports 6.12.6) übernommen und gegen
+backports 6.12.96 refresht (nur Zeilenversatz).]
+---
+ ...ort-setting-bdf-addr-and-caldb-addr-.patch | 62 +++++++++++++++++++
+ 1 file changed, 62 insertions(+)
+ create mode 100644 package/kernel/mac80211/patches/ath11k/201-wifi-ath11k-Support-setting-bdf-addr-and-caldb-addr-.patch
+
+diff --git a/package/kernel/mac80211/patches/ath11k/201-wifi-ath11k-Support-setting-bdf-addr-and-caldb-addr-.patch b/package/kernel/mac80211/patches/ath11k/201-wifi-ath11k-Support-setting-bdf-addr-and-caldb-addr-.patch
+new file mode 100644
+index 0000000000..27d5a53513
+--- /dev/null
++++ b/package/kernel/mac80211/patches/ath11k/201-wifi-ath11k-Support-setting-bdf-addr-and-caldb-addr-.patch
+@@ -0,0 +1,62 @@
++From 824dde8652815aa67b4e2bf2d8a9455a8ef82b8f Mon Sep 17 00:00:00 2001
++From: Ziyang Huang <hzyitc@outlook.com>
++Date: Thu, 29 Jun 2023 06:12:45 +0000
++Subject: [PATCH] wifi: ath11k: Support setting bdf-addr and caldb-addr via DT
++
++Signed-off-by: Ziyang Huang <hzyitc@outlook.com>
++---
++ drivers/net/wireless/ath/ath11k/qmi.c | 15 +++++++++++----
++ 1 file changed, 11 insertions(+), 4 deletions(-)
++
++--- a/drivers/net/wireless/ath/ath11k/qmi.c
+++++ b/drivers/net/wireless/ath/ath11k/qmi.c
++@@ -2037,6 +2037,7 @@ static int ath11k_qmi_assign_target_mem_
++ 	struct device_node *hremote_node = NULL;
++ 	struct resource res;
++ 	u32 host_ddr_sz;
+++	u32 addr;
++ 	int i, idx, ret;
++ 
++ 	for (i = 0, idx = 0; i < ab->qmi.mem_seg_count; i++) {
++@@ -2076,7 +2077,9 @@ static int ath11k_qmi_assign_target_mem_
++ 			idx++;
++ 			break;
++ 		case BDF_MEM_REGION_TYPE:
++-			ab->qmi.target_mem[idx].paddr = ab->hw_params.bdf_addr;
+++			if(of_property_read_u32(dev->of_node, "qcom,bdf-addr", &addr))
+++				addr = ab->hw_params.bdf_addr;
+++			ab->qmi.target_mem[idx].paddr = addr;
++ 			ab->qmi.target_mem[idx].vaddr = NULL;
++ 			ab->qmi.target_mem[idx].size = ab->qmi.target_mem[i].size;
++ 			ab->qmi.target_mem[idx].type = ab->qmi.target_mem[i].type;
++@@ -2098,8 +2101,9 @@ static int ath11k_qmi_assign_target_mem_
++ 					if (!ab->qmi.target_mem[idx].iaddr)
++ 						return -EIO;
++ 				} else {
++-					ab->qmi.target_mem[idx].paddr =
++-						ATH11K_QMI_CALDB_ADDRESS;
+++					if(of_property_read_u32(dev->of_node, "qcom,caldb-addr", &addr))
+++						addr = ATH11K_QMI_CALDB_ADDRESS;
+++					ab->qmi.target_mem[idx].paddr = addr;
++ 				}
++ 			} else {
++ 				ab->qmi.target_mem[idx].paddr = 0;
++@@ -2304,6 +2308,7 @@ static int ath11k_qmi_load_file_target_m
++ 	struct qmi_wlanfw_bdf_download_resp_msg_v01 resp;
++ 	struct qmi_txn txn;
++ 	const u8 *temp = data;
+++	u32 addr;
++ 	void __iomem *bdf_addr = NULL;
++ 	int ret = 0;
++ 	u32 remaining = len;
++@@ -2315,7 +2320,9 @@ static int ath11k_qmi_load_file_target_m
++ 	memset(&resp, 0, sizeof(resp));
++ 
++ 	if (ab->hw_params.fixed_bdf_addr) {
++-		bdf_addr = ioremap(ab->hw_params.bdf_addr, ab->hw_params.fw.board_size);
+++		if(of_property_read_u32(ab->dev->of_node, "qcom,bdf-addr", &addr))
+++			addr = ab->hw_params.bdf_addr;
+++		bdf_addr = ioremap(addr, ab->hw_params.fw.board_size);
++ 		if (!bdf_addr) {
++ 			ath11k_warn(ab, "qmi ioremap error for bdf_addr\n");
++ 			ret = -EIO;
+-- 
+2.53.0
+

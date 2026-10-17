@@ -1,0 +1,31 @@
+From f03c495c2d9c3585123bcb97993055dddef2c006 Mon Sep 17 00:00:00 2001
+From: Robert Marko <robimarko@gmail.com>
+Date: Thu, 8 May 2025 13:19:34 +0200
+Subject: [PATCH 35/42] ath11k-firmware: fix legacy FW tarball hash
+
+The legacy FW tarball hash is wrong, fix it.
+
+Fixes: ea83f7de2b02 ("ath11k-firmware: add wifi firmware for IPQ5018")
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+
+(cherry picked from commit d6ba1c99fd68fd9d1d3d37c112e79fa1d8a5e522)
+---
+ package/firmware/ath11k-firmware/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/package/firmware/ath11k-firmware/Makefile b/package/firmware/ath11k-firmware/Makefile
+index a333d1b154..cfc364215f 100644
+--- a/package/firmware/ath11k-firmware/Makefile
++++ b/package/firmware/ath11k-firmware/Makefile
+@@ -36,7 +36,7 @@ define Download/$(ATH11K_LEGACY_FW_NAME)
+ 	PROTO:=git
+ 	URL:=https://github.com/quic/upstream-wifi-fw.git
+ 	SOURCE_VERSION:=795809c7041582bd51bdfaa1f548b916ae8d4382
+-	MIRROR_HASH:=e042024b6762a5b4fe56f1a5bf8870df2e7abcca90ec22103cd46a609bee7cec
++	MIRROR_HASH:=b55bf7204543c7ba87876e84788239b0e47ad62434c5b0d1169526cde36a9daa
+ 	SUBDIR:=$(ATH11K_LEGACY_FW_SUBDIR)
+ endef
+ 
+-- 
+2.53.0
+

@@ -1,0 +1,69 @@
+From 6f01d1d32c0bfcd1575dedb40ddf63317656b5a2 Mon Sep 17 00:00:00 2001
+From: adorfer <adorferen@gmail.com>
+Date: Tue, 13 Oct 2026 18:39:52 +0200
+Subject: [PATCH 32/42] mac80211: ath11k-smallbuffers: ship the AHB module for
+ opkg
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Unter OpenWrt 24.10 baut opkg die Rootfs je Gerät so: Kopie des
+Ziel-Rootfs mit allen "y"-Paketen, dann "opkg remove" der "-"-Pakete
+aus DEVICE_PACKAGES, dann "opkg install" der übrigen. kmod-ath11k-ahb
+steht bei qualcommax in DEFAULT_PACKAGES und zieht kmod-ath11k (regular)
+als "y" in das Ziel-Rootfs.
+
+Die Zeile "kmod-ath11k-smallbuffers -kmod-ath11k" aus dem c127dev-Fork
+(dort mit apk) scheitert damit unter opkg: "opkg remove kmod-ath11k"
+verweigert wegen des installierten kmod-ath11k-ahb ("No packages
+removed"), danach bricht "opkg install kmod-ath11k-smallbuffers" mit
+check_data_file_clashes auf ath11k.ko ab. Nachgestellt mit dem
+Host-opkg aus einem 2025.1-Baum und Attrappen-Paketen mit denselben
+Depends/Provides/Conflicts.
+
+Abhilfe wie bei ath10k-smallbuffers (Kern und Busmodul in einem Paket):
+kmod-ath11k-smallbuffers enthält zusätzlich ath11k_ahb.ko aus derselben
+Variante. Ein Gerät mit smallbuffers entfernt dann "-kmod-ath11k-ahb
+-kmod-ath11k" (in dieser Reihenfolge) und installiert nur
+kmod-ath11k-smallbuffers; das ging in der Nachstellung durch. Nebenbei
+passt ath11k_ahb.ko damit sicher zum ath11k.ko derselben Variante
+(bisher kam kmod-ath11k-ahb immer aus dem regular-Bau, weil
+config_package ohne Variantenliste nur die erste Variante wählt).
+
+Das Paket ist damit auf qualcommax beschränkt. kmod-ath11k,
+kmod-ath11k-ahb und kmod-ath11k-pci bleiben unverändert; ipq807x/ipq60xx
+wählen kmod-ath11k-smallbuffers nicht und sind nicht betroffen.
+
+Gehört fachlich zur smallbuffers-Portierung (Serie C).
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ package/kernel/mac80211/ath.mk | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/package/kernel/mac80211/ath.mk b/package/kernel/mac80211/ath.mk
+index 9a7ec6b3aa..ad80d8e830 100644
+--- a/package/kernel/mac80211/ath.mk
++++ b/package/kernel/mac80211/ath.mk
+@@ -64,7 +64,7 @@ config-$(call config_package,ath9k-htc) += ATH9K_HTC
+ config-$(call config_package,ath10k,regular) += ATH10K ATH10K_PCI
+ config-$(call config_package,ath10k-smallbuffers,smallbuffers) += ATH10K ATH10K_PCI ATH10K_SMALLBUFFERS
+ config-$(call config_package,ath11k,regular) += ATH11K
+-config-$(call config_package,ath11k-smallbuffers,smallbuffers) += ATH11K ATH11K_SMALLBUFFERS
++config-$(call config_package,ath11k-smallbuffers,smallbuffers) += ATH11K ATH11K_AHB ATH11K_SMALLBUFFERS
+ config-$(call config_package,ath11k-ahb) += ATH11K_AHB
+ config-$(call config_package,ath11k-pci) += ATH11K_PCI
+ config-$(call config_package,ath12k) += ATH12K
+@@ -340,6 +340,9 @@ endef
+ define KernelPackage/ath11k-smallbuffers
+   $(call KernelPackage/ath11k/Default)
+   TITLE+= (small buffers for low-RAM devices)
++  DEPENDS+= @TARGET_qualcommax +kmod-qrtr-smd
++  FILES+= $(PKG_BUILD_DIR)/drivers/net/wireless/ath/ath11k/ath11k_ahb.ko
++  AUTOLOAD:=$(call AutoProbe,ath11k_ahb)
+   VARIANT:=smallbuffers
+ endef
+ 
+-- 
+2.53.0
+

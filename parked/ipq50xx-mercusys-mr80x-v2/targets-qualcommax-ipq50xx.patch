@@ -1,0 +1,44 @@
+diff --git a/docs/user/supported_devices.rst b/docs/user/supported_devices.rst
+index 4e5407f3..ba25363b 100644
+--- a/docs/user/supported_devices.rst
++++ b/docs/user/supported_devices.rst
+@@ -458,6 +458,14 @@ mpc85xx-p1020
+ 
+   - Panda
+ 
++qualcommax-ipq50xx
++------------------
++
++* MERCUSYS
++
++  - MR80X (v2)
++  - MR3000X (v2)
++
+ qualcommax-ipq807x
+ ------------------
+ 
+diff --git a/targets/qualcommax-ipq50xx b/targets/qualcommax-ipq50xx
+new file mode 100644
+index 00000000..52913ec5
+--- /dev/null
++++ b/targets/qualcommax-ipq50xx
+@@ -0,0 +1,7 @@
++-- Mercusys
++
++device('mercusys-mr80x-v2', 'mercusys_mr80x-v2', {
++	aliases = {
++		'mercusys-mr3000x-v2', -- same board, factory.bin carries an MR3000X SupportList entry
++	},
++})
+diff --git a/targets/targets.mk b/targets/targets.mk
+index 285137d3..fab7f338 100644
+--- a/targets/targets.mk
++++ b/targets/targets.mk
+@@ -16,6 +16,7 @@ $(eval $(call GluonTarget,mediatek,mt7622))
+ $(eval $(call GluonTarget,mvebu,cortexa53))
+ $(eval $(call GluonTarget,mpc85xx,p1010))
+ $(eval $(call GluonTarget,mpc85xx,p1020))
++$(eval $(call GluonTarget,qualcommax,ipq50xx))
+ $(eval $(call GluonTarget,qualcommax,ipq807x))
+ $(eval $(call GluonTarget,ramips,mt7620))
+ $(eval $(call GluonTarget,ramips,mt7621))

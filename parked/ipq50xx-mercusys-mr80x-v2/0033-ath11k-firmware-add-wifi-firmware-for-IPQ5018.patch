@@ -1,0 +1,139 @@
+From 49335503acd578b35f0951af23cbea79d186985c Mon Sep 17 00:00:00 2001
+From: George Moussalem <george.moussalem@outlook.com>
+Date: Mon, 7 Oct 2024 15:26:32 +0400
+Subject: [PATCH 33/42] ath11k-firmware: add wifi firmware for IPQ5018
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add ability to download and package ath11k firmware for IPQ5018.
+
+As part of commit 172ccf7, the source is pointed to the new QCA repo.
+Until QCA publishes updated firmware for IPQ5018 and QCN6122, we need
+to download the firmware from the old QUIC repo. As such, add a new
+download routine for IPQ5018/QCN6122 to fetch the firmware files from
+the old repo.
+
+While at it, add support for packaging BDFs for IPQ5018-based boards
+and update iwinfo to recognize IPQ5018 wifi.
+
+Signed-off-by: George Moussalem <george.moussalem@outlook.com>
+Link: https://github.com/openwrt/openwrt/pull/17182
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+
+(cherry picked from commit ea83f7de2b02e65eb6c59585fab2fd47f8e752a2)
+
+[Neanderfunk: an Kernel 6.6 / OpenWrt 24.10 angepasst: ipq-wifi/Makefile:
+24.10 kennt eine Endung mehr (.QCA9889), daher eine schließende Klammer
+mehr am Ende von ipq-wifi-install-one. Die iwinfo-Änderung aus der
+Commit-Beschreibung steckt nicht in diesem Commit (iwinfo kommt in 24.10
+aus dem eigenen Repo) und fehlt hier ebenfalls.]
+---
+ package/firmware/ath11k-firmware/Makefile | 43 +++++++++++++++++++++++
+ package/firmware/ipq-wifi/Makefile        |  4 ++-
+ 2 files changed, 46 insertions(+), 1 deletion(-)
+
+diff --git a/package/firmware/ath11k-firmware/Makefile b/package/firmware/ath11k-firmware/Makefile
+index 0acc3f9f1a..85387289c1 100644
+--- a/package/firmware/ath11k-firmware/Makefile
++++ b/package/firmware/ath11k-firmware/Makefile
+@@ -25,6 +25,21 @@ include $(INCLUDE_DIR)/package.mk
+ RSTRIP:=:
+ STRIP:=:
+ 
++ATH11K_LEGACY_FW_NAME:=ath11k-legacy-firmware
++ATH11K_LEGACY_FW_DATE:=2024-03-14
++ATH11K_LEGACY_FW_RELEASE:=795809c7
++ATH11K_LEGACY_FW_SUBDIR:=$(ATH11K_LEGACY_FW_NAME)-$(ATH11K_LEGACY_FW_DATE)~$(ATH11K_LEGACY_FW_RELEASE)
++ATH11K_LEGACY_FW_SOURCE=$(ATH11K_LEGACY_FW_SUBDIR).tar.zst
++
++define Download/$(ATH11K_LEGACY_FW_NAME)
++	FILE:=$(ATH11K_LEGACY_FW_SOURCE)
++	PROTO:=git
++	URL:=https://github.com/quic/upstream-wifi-fw.git
++	SOURCE_VERSION:=795809c7041582bd51bdfaa1f548b916ae8d4382
++	MIRROR_HASH:=e042024b6762a5b4fe56f1a5bf8870df2e7abcca90ec22103cd46a609bee7cec
++	SUBDIR:=$(ATH11K_LEGACY_FW_SUBDIR)
++endef
++
+ define Package/ath11k-firmware-default
+   SECTION:=firmware
+   CATEGORY:=Firmware
+@@ -32,6 +47,11 @@ define Package/ath11k-firmware-default
+   DEPENDS:=
+ endef
+ 
++define Package/ath11k-firmware-ipq5018
++$(Package/ath11k-firmware-default)
++  TITLE:=IPQ5018 ath11k firmware
++endef
++
+ define Package/ath11k-firmware-ipq6018
+ $(Package/ath11k-firmware-default)
+   TITLE:=IPQ6018 ath11k firmware
+@@ -47,10 +67,32 @@ $(Package/ath11k-firmware-default)
+   TITLE:=QCN9074 ath11k firmware
+ endef
+ 
++define Build/Clean
++	$(call Build/Clean/Default,)
++
++	rm -rf \
++		$(BUILD_DIR)/$(ATH11K_LEGACY_FW_SUBDIR)
++endef
++
++define Build/Prepare
++	$(eval $(call Download,ath11k-legacy-firmware))
++	
++	$(call Build/Prepare/Default,)
++
++	$(TAR) -C $(BUILD_DIR) -xf $(DL_DIR)/$(ATH11K_LEGACY_FW_SOURCE)
++endef
++
+ define Build/Compile
+ 
+ endef
+ 
++define Package/ath11k-firmware-ipq5018/install
++	$(INSTALL_DIR) $(1)/lib/firmware/ath11k/IPQ5018/hw1.0
++	$(INSTALL_DATA) \
++		$(BUILD_DIR)/$(ATH11K_LEGACY_FW_SUBDIR)/ath11k-firmware/IPQ5018_QCN6122_QCN6122/hw1.0/2.7.0.1/WLAN.HK.2.7.0.1-01744-QCAHKSWPL_SILICONZ-1/*.* \
++		$(1)/lib/firmware/ath11k/IPQ5018/hw1.0/
++endef
++
+ define Package/ath11k-firmware-ipq6018/install
+ 	$(INSTALL_DIR) $(1)/lib/firmware/IPQ6018
+ 	$(INSTALL_DATA) \
+@@ -74,6 +116,7 @@ define Package/ath11k-firmware-qcn9074/install
+ 		$(PKG_BUILD_DIR)/QCN9074/hw1.0/board-2.bin $(1)/lib/firmware/ath11k/QCN9074/hw1.0/board-2.bin
+ endef
+ 
++$(eval $(call BuildPackage,ath11k-firmware-ipq5018))
+ $(eval $(call BuildPackage,ath11k-firmware-ipq6018))
+ $(eval $(call BuildPackage,ath11k-firmware-ipq8074))
+ $(eval $(call BuildPackage,ath11k-firmware-qcn9074))
+diff --git a/package/firmware/ipq-wifi/Makefile b/package/firmware/ipq-wifi/Makefile
+index 569bf1b430..a4eacf96dc 100644
+--- a/package/firmware/ipq-wifi/Makefile
++++ b/package/firmware/ipq-wifi/Makefile
+@@ -105,6 +105,8 @@ define ipq-wifi-install-one
+     $(call ipq-wifi-install-one-to,$(1),$(2),QCA9984/hw1.0),\
+   $(if $(filter $(suffix $(1)),.QCA99X0 .qca99x0),\
+     $(call ipq-wifi-install-one-to,$(1),$(2),QCA99X0/hw2.0),\
++  $(if $(filter $(suffix $(1)),.IPQ5018 .ipq5018),\
++    $(call ipq-wifi-install-ath11-one-to,$(1),$(2),IPQ5018/hw1.0),\
+   $(if $(filter $(suffix $(1)),.IPQ6018 .ipq6018),\
+     $(call ipq-wifi-install-ath11-one-to,$(1),$(2),IPQ6018/hw1.0),\
+   $(if $(filter $(suffix $(1)),.IPQ8074 .ipq8074),\
+@@ -112,7 +114,7 @@ define ipq-wifi-install-one
+   $(if $(filter $(suffix $(1)),.QCN9074 .qcn9074),\
+     $(call ipq-wifi-install-ath11-one-to,$(1),$(2),QCN9074/hw1.0),\
+     $(error Unrecognized board-file suffix '$(suffix $(1))' for '$(1)')\
+-  )))))))))
++  ))))))))))
+ 
+ endef
+ # Blank line required at end of above define due to foreach context
+-- 
+2.53.0
+

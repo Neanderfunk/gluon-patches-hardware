@@ -1,0 +1,56 @@
+From 222640630b6932aa84f0783c8eef7eef2e08e43b Mon Sep 17 00:00:00 2001
+From: George Moussalem <george.moussalem@outlook.com>
+Date: Fri, 19 Dec 2025 11:18:04 +0400
+Subject: [PATCH 17/42] qualcommax: ipq50xx: fix reo2host-status interrupt
+ vector
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Interrupt vector for reo2host-status is wrongly assigned.
+Status interrupts weren't received and a workaround was applied to
+mac80211 to periodically poll the reo status ring. Therefore, the
+workaround can be removed with the proper hardware interrupt line
+assigned.
+
+Signed-off-by: George Moussalem <george.moussalem@outlook.com>
+Link: https://github.com/openwrt/openwrt/pull/21271
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+
+[Neanderfunk: an Kernel 6.6 / OpenWrt 24.10 angepasst: nur der DTS-Teil
+(Tausch GIC_SPI 312/334 im wifi@c000000-Knoten von patches-6.6/0816, gleiche
+Zuordnung Interrupt/Name wie in der 6.12-Fassung); das Entfernen von
+mac80211 ath11k/932-wifi-ath11k-poll-reo-status-ipq5018.patch gehört zur
+mac80211-Serie. Mit richtigem Interrupt schadet 932 nicht (zusätzliches
+Abholen desselben Rings unter dessen Lock), ohne diesen Fix ist 932 aber nötig.]
+
+(cherry picked from commit 501e54b6c2a5543b3890984ff128e004e96877ee)
+---
+ .../0816-arm64-dts-qcom-ipq5018-add-wifi-support.patch        | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/target/linux/qualcommax/patches-6.6/0816-arm64-dts-qcom-ipq5018-add-wifi-support.patch b/target/linux/qualcommax/patches-6.6/0816-arm64-dts-qcom-ipq5018-add-wifi-support.patch
+index d158688928..13ed1b6328 100644
+--- a/target/linux/qualcommax/patches-6.6/0816-arm64-dts-qcom-ipq5018-add-wifi-support.patch
++++ b/target/linux/qualcommax/patches-6.6/0816-arm64-dts-qcom-ipq5018-add-wifi-support.patch
+@@ -45,7 +45,7 @@ Signed-off-by: George Moussalem <george.moussalem@outlook.com>
+ +				<GIC_SPI 309 IRQ_TYPE_EDGE_RISING>,
+ +				<GIC_SPI 310 IRQ_TYPE_EDGE_RISING>,
+ +				<GIC_SPI 311 IRQ_TYPE_EDGE_RISING>,
+-+				<GIC_SPI 312 IRQ_TYPE_EDGE_RISING>,
+++				<GIC_SPI 334 IRQ_TYPE_EDGE_RISING>,
+ +				<GIC_SPI 313 IRQ_TYPE_EDGE_RISING>,
+ +				<GIC_SPI 314 IRQ_TYPE_EDGE_RISING>,
+ +				<GIC_SPI 315 IRQ_TYPE_EDGE_RISING>,
+@@ -67,7 +67,7 @@ Signed-off-by: George Moussalem <george.moussalem@outlook.com>
+ +				<GIC_SPI 331 IRQ_TYPE_EDGE_RISING>,
+ +				<GIC_SPI 332 IRQ_TYPE_EDGE_RISING>,
+ +				<GIC_SPI 333 IRQ_TYPE_EDGE_RISING>,
+-+				<GIC_SPI 334 IRQ_TYPE_EDGE_RISING>,
+++				<GIC_SPI 312 IRQ_TYPE_EDGE_RISING>,
+ +				<GIC_SPI 335 IRQ_TYPE_EDGE_RISING>,
+ +				<GIC_SPI 336 IRQ_TYPE_EDGE_RISING>,
+ +				<GIC_SPI 337 IRQ_TYPE_EDGE_RISING>,
+-- 
+2.53.0
+

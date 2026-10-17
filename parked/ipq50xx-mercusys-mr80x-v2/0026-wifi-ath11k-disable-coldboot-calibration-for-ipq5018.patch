@@ -1,0 +1,76 @@
+From 0e29307587c9084a3dbca1f35c5fbfe8d9306b3e Mon Sep 17 00:00:00 2001
+From: George Moussalem <george.moussalem@outlook.com>
+Date: Tue, 10 Jun 2025 14:41:54 +0400
+Subject: [PATCH 26/42] wifi: ath11k: disable coldboot calibration for ipq5018
+ and qcn6122
+
+Coldboot calibration does not work causes the firmware to crash during
+wifi startup. So let's disable coldboot calibration until a solution is
+found.
+
+Signed-off-by: George Moussalem <george.moussalem@outlook.com>
+Link: https://github.com/openwrt/openwrt/pull/19083
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+
+(cherry picked from commit cf715a230589058aeb703f930504d6d98619a53b)
+
+[Neanderfunk: an Kernel 6.6 / OpenWrt 24.10 angepasst: 0907 in der
+Fassung dieses Commits (backports 6.12.6) gegen backports 6.12.96
+refresht; 920 entsprechend nachgezogen.]
+---
+ ...ble-coldboot-calibration-for-ipq5018.patch | 27 +++++++++++++++++++
+ ...ifi-ath11k-add-hw-params-for-QCN6122.patch |  4 +--
+ 2 files changed, 29 insertions(+), 2 deletions(-)
+ create mode 100644 package/kernel/mac80211/patches/ath11k/0907-wifi-ath11k-disable-coldboot-calibration-for-ipq5018.patch
+
+diff --git a/package/kernel/mac80211/patches/ath11k/0907-wifi-ath11k-disable-coldboot-calibration-for-ipq5018.patch b/package/kernel/mac80211/patches/ath11k/0907-wifi-ath11k-disable-coldboot-calibration-for-ipq5018.patch
+new file mode 100644
+index 0000000000..2c4762e275
+--- /dev/null
++++ b/package/kernel/mac80211/patches/ath11k/0907-wifi-ath11k-disable-coldboot-calibration-for-ipq5018.patch
+@@ -0,0 +1,27 @@
++From b2d16b688ce04b67f2033f90f49f4add7ebd3fe8 Mon Sep 17 00:00:00 2001
++From: George Moussalem <george.moussalem@outlook.com>
++Date: Tue, 10 Jun 2025 14:34:37 +0400
++Subject: [PATCH] wifi: ath11k: disable coldboot calibration for ipq5018
++
++Coldboot calibration does not work causes the firmware to crash during
++wifi startup. So let's disable coldboot calibration until a solution is
++found.
++
++Signed-off-by: George Moussalem <george.moussalem@outlook.com>
++---
++ drivers/net/wireless/ath/ath11k/core.c | 4 ++--
++ 1 file changed, 2 insertions(+), 2 deletions(-)
++
++--- a/drivers/net/wireless/ath/ath11k/core.c
+++++ b/drivers/net/wireless/ath/ath11k/core.c
++@@ -691,8 +691,8 @@ static const struct ath11k_hw_params ath
++ 		.supports_suspend = false,
++ 		.hal_params = &ath11k_hw_hal_params_ipq8074,
++ 		.single_pdev_only = false,
++-		.coldboot_cal_mm = true,
++-		.coldboot_cal_ftm = true,
+++		.coldboot_cal_mm = false,
+++		.coldboot_cal_ftm = false,
++ 		.cbcal_restart_fw = true,
++ 		.fix_l1ss = true,
++ 		.supports_dynamic_smps_6ghz = false,
+diff --git a/package/kernel/mac80211/patches/ath11k/920-wifi-ath11k-add-hw-params-for-QCN6122.patch b/package/kernel/mac80211/patches/ath11k/920-wifi-ath11k-add-hw-params-for-QCN6122.patch
+index 364ccd066b..5f06c5b1b8 100644
+--- a/package/kernel/mac80211/patches/ath11k/920-wifi-ath11k-add-hw-params-for-QCN6122.patch
++++ b/package/kernel/mac80211/patches/ath11k/920-wifi-ath11k-add-hw-params-for-QCN6122.patch
+@@ -71,8 +71,8 @@ Signed-off-by: George Moussalem <george.moussalem@outlook.com>
+ +		.rx_mac_buf_ring = false,
+ +		.vdev_start_delay = false,
+ +		.htt_peer_map_v2 = true,
+-+		.coldboot_cal_mm = true,
+-+		.coldboot_cal_ftm = true,
+++		.coldboot_cal_mm = false,
+++		.coldboot_cal_ftm = false,
+ +		.cbcal_restart_fw = true,
+ +		.fix_l1ss = true,
+ +		.alloc_cacheable_memory = true,
+-- 
+2.53.0
+

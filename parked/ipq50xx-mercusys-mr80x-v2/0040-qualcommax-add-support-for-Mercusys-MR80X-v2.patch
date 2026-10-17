@@ -1,0 +1,808 @@
+From f30dec55ccdd66d4966a5c252a07687cd698f14e Mon Sep 17 00:00:00 2001
+From: Johan Alvarado <contact@c127.dev>
+Date: Wed, 26 Aug 2026 11:31:08 -0500
+Subject: [PATCH 40/42] qualcommax: add support for Mercusys MR80X v2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Hardware:
+  SoC:    Qualcomm IPQ5018 (2x Cortex-A53)
+  RAM:    256 MiB DDR3
+  Flash:  128 MiB SPI-NAND (ESMT)
+  Switch: Realtek RTL8367S, 4x GbE (3x LAN + 1x WAN), SGMII CPU port
+  WiFi:   IPQ5018 2.4 GHz, QCN6122 5 GHz, both 802.11ax
+  LEDs:   system (green/amber), WAN, LAN1-3
+  Button: reset
+  UART:   115200 8N1, 3.3V, on-board header
+
+Wi-Fi is left disabled: 256 MiB is too few for ath11k, same as on the
+ELECOM WRC-X3000GS2.
+
+Notes:
+- The label reads "Ver 2.20", but the vendor firmware only ever calls the
+  board V2: the GPL tree is GPL_MR80Xv2, PRODUCT_NAME is MR80Xv2, the
+  running system reports "MR80X V2" and the fwup support list carries
+  product_ver 2.0.0. The trailing digits are a production sub-revision,
+  so the port is named v2.
+- MAC1 runs sgmii through the UNIPHY PCS to RTL8367S port 6. The link is
+  wired for HSGMII and 2500base-x does come up, but only when gmac1 and
+  the CPU port carry the same phy-mode: the UNIPHY PCS belongs to the
+  conduit (pcs-handle = <&uniphy0> in ipq5018-ess.dtsi), so setting the
+  CPU port alone leaves the switch running HSGMII into a SerDes still
+  clocked for SGMII.
+  With both ends at 2500base-x the trunk still dies on some boots: over
+  12 reboots, 2 came up with the CPU port passing no traffic at all -
+  eth0 transmitting while s00_p06_ifInOctets stayed at 0, no FCS errors,
+  the link reporting 2.5 Gbps. That matches the bring-up ordering race
+  described in openwrt/openwrt#25153, where the switch end of the trunk
+  is configured before the IPQ5018 UNIPHY resets and recalibrates its
+  PLL. sgmii has not reproduced it, so the port ships at sgmii until
+  that fix lands.
+- MAC addresses come from default-mac in the vendor tp_data UBI volume,
+  6 raw bytes at offset 0, mounted read-only during preinit:
+    label   default-mac
+    LAN     default-mac
+    WAN     default-mac + 1
+    2.4 GHz default-mac - 1
+    5 GHz   default-mac - 2
+- Sysupgrade A/B ping-pongs rootfs/rootfs_1 via tp_boot_idx, switched
+  only after the new slot is fully written. primaryboot stays 0, the
+  stock loader and the button recovery rely on it.
+- factory.bin is wrapped in the Mercusys fwup container the stock web UI
+  accepts (scripts/mercusys-fwup.py). The generic tplink-image-2022
+  container is rejected: the loader picks its verification algorithm from
+  the fw-type string, which that container does not write.
+- The board needs the backported spi-qpic-snand ECC context fix,
+  otherwise about half of the boots end in "Waiting for root device
+  /dev/ubiblock0_1".
+
+Installation:
+  In the stock web UI go to Advanced -> System -> Firmware Update ->
+  Local Update, browse for
+  openwrt-qualcommax-ipq50xx-mercusys_mr80x-v2-squashfs-factory.bin
+  and press UPDATE.
+
+  Tested on stock firmware MR80X(EU)_V2.20_1.1.7 Build 20250415
+  (Multi-language).
+
+  The U-Boot web recovery does not accept this image: it verifies an
+  RSA1024 signature and has no keyless path. Use the stock web UI.
+
+Signed-off-by: Johan Alvarado <contact@c127.dev>
+Link: https://github.com/openwrt/openwrt/pull/24919
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+
+[Neanderfunk: an Kernel 6.6 / OpenWrt 24.10 angepasst: DTS im Stil der
+6.6-Zeit unter files/arch/arm64/boot/dts/qcom/ (nss-dp dp2 und ess-switch
+mit switch_mac_mode MAC_MODE_SGMII_CHANNEL0 statt gmac1/uniphy0 und
+qca-uniphy.h; q6v5_wcss mit pd-1/pd-2 und q6_mem_regions im Board-DTS
+statt ipq5018-qcn6122.dtsi; wifi0 statt wifi; xo_board_clk als
+fixed-clock mit 24 MHz; ethernet1 zeigt auf dp2). CPU-Port und UNIPHY
+bleiben auf sgmii/1000: neben dem oben beschriebenen Bring-up-Rennen
+kann rtl8365mb unter 6.6 (nur SGMII-Backport 943-01) an Port 6 kein
+2500base-x, und HSGMII bräuchte auf der IPQ-Seite MAC_MODE_SGMII_PLUS
+in qca-ssdk, das am Gerät nie lief. Gerätefälle in die leeren
+case-Blöcke des ipq50xx-Gerüsts eingetragen; image/ipq50xx.mk war leer
+und bekommt DEVICE_VARS, Build/mercusys-fwup und das Gerät. 02_network:
+ipq50xx_setup_macs() neu angelegt (kam in main mit dem Archer AX55),
+Conduit eth0 = dp2. lib/preinit/09_mount_tp_data neu, nur für den
+MR80X v2. get_bootconfig_primaryboot aus lib/functions/bootconfig.sh,
+das samt Source-Zeile in platform.sh schon im ipq50xx-Target steckt.
+uboot-envtools im 24.10-Pfad mit ubootenv_add_uci_config.]
+(cherry picked from commit 938f67a519de64dcec10759b2b7203aca086f97a)
+---
+ .../uboot-envtools/files/qualcommax_ipq50xx   |   5 +
+ .../arm64/boot/dts/qcom/ipq5018-mr80x-v2.dts  | 462 ++++++++++++++++++
+ target/linux/qualcommax/image/ipq50xx.mk      |  33 ++
+ .../ipq50xx/base-files/etc/board.d/01_leds    |   6 +
+ .../ipq50xx/base-files/etc/board.d/02_network |  25 +
+ .../etc/hotplug.d/firmware/11-ath11k-caldata  |  12 +
+ .../base-files/lib/preinit/09_mount_tp_data   |  30 ++
+ .../base-files/lib/upgrade/platform.sh        |  44 ++
+ 8 files changed, 617 insertions(+)
+ create mode 100644 target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq5018-mr80x-v2.dts
+ create mode 100644 target/linux/qualcommax/ipq50xx/base-files/lib/preinit/09_mount_tp_data
+
+diff --git a/package/boot/uboot-envtools/files/qualcommax_ipq50xx b/package/boot/uboot-envtools/files/qualcommax_ipq50xx
+index 19f0f415c7..d8d03673cf 100644
+--- a/package/boot/uboot-envtools/files/qualcommax_ipq50xx
++++ b/package/boot/uboot-envtools/files/qualcommax_ipq50xx
+@@ -8,6 +8,11 @@ touch /etc/config/ubootenv
+ board=$(board_name)
+ 
+ case "$board" in
++mercusys,mr80x-v2)
++	idx="$(find_mtd_index 0:appsblenv)"
++	[ -n "$idx" ] && \
++		ubootenv_add_uci_config "/dev/mtd$idx" "0x0" "0x40000" "0x20000"
++	;;
+ esac
+ 
+ config_load ubootenv
+diff --git a/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq5018-mr80x-v2.dts b/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq5018-mr80x-v2.dts
+new file mode 100644
+index 0000000000..e42cdf4ecb
+--- /dev/null
++++ b/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq5018-mr80x-v2.dts
+@@ -0,0 +1,462 @@
++// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
++
++/dts-v1/;
++
++#include "ipq5018.dtsi"
++#include "ipq5018-ess.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/leds/common.h>
++
++/ {
++	model = "Mercusys MR80X v2";
++	compatible = "mercusys,mr80x-v2", "qcom,ipq5018";
++
++	aliases {
++		led-boot = &led_sys_green;
++		led-failsafe = &led_sys_orange;
++		led-running = &led_sys_green;
++		led-upgrade = &led_sys_orange;
++		serial0 = &blsp1_uart1;
++		ethernet1 = &dp2;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++		/* U-Boot hardcodes root=mtd:ubi_rootfs; override it */
++		bootargs-append = " root=/dev/ubiblock0_1 coherent_pool=2M";
++	};
++
++	/*
++	 * Single button for both reset and WPS on the factory firmware.
++	 * WPS is deprecated, only expose as reset button.
++	 */
++	keys {
++		compatible = "gpio-keys";
++		pinctrl-0 = <&button_pins>;
++		pinctrl-names = "default";
++
++		reset-button {
++			label = "reset";
++			gpios = <&tlmm 14 GPIO_ACTIVE_LOW>;
++			linux,code = <KEY_RESTART>;
++		};
++	};
++
++	leds {
++		compatible = "gpio-leds";
++
++		led_sys_green: sys-green {
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_POWER;
++			gpios = <&tlmm 13 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++		};
++
++		led_sys_orange: sys-orange {
++			color = <LED_COLOR_ID_AMBER>;
++			function = LED_FUNCTION_STATUS;
++			gpios = <&tlmm 12 GPIO_ACTIVE_HIGH>;
++		};
++
++		wan {
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_WAN;
++			gpios = <&tlmm 10 GPIO_ACTIVE_HIGH>;
++		};
++
++		lan1 {
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_LAN;
++			function-enumerator = <1>;
++			gpios = <&tlmm 33 GPIO_ACTIVE_HIGH>;
++		};
++
++		lan2 {
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_LAN;
++			function-enumerator = <2>;
++			gpios = <&tlmm 11 GPIO_ACTIVE_HIGH>;
++		};
++
++		lan3 {
++			color = <LED_COLOR_ID_GREEN>;
++			function = LED_FUNCTION_LAN;
++			function-enumerator = <3>;
++			gpios = <&tlmm 32 GPIO_ACTIVE_HIGH>;
++		};
++	};
++
++	reserved-memory {
++		/* Q6 firmware for IPQ5018 and QCN6122, 48 MiB */
++		q6_mem_regions: q6_mem_regions@4b000000 {
++			no-map;
++			reg = <0x0 0x4b000000 0x0 0x3000000>;
++		};
++	};
++};
++
++/*
++ * ===============================================================
++ *     _______________________         _______________________
++ *    |        IPQ5018        |       |       RTL8367S        |
++ *    | +------+   +--------+ |       | +--------+   +------+ |
++ *    | | MAC0 |---| GE Phy | |       | |  Phy0  |---| Port1| |
++ *    | +------+   +--------+ |       | +--------+   +------+ |
++ *    | +------+   +--------+ |       | +--------+   +------+ |
++ *    | | MAC1 |---| Uniphy |-+-SGMII-+-| ExtPort|---| Port6| |
++ *    | +------+   +--------+ |       | +--------+   +------+ |
++ *    |_______________________|       | | Phy1-3 |---| P2-4 | |
++ *                                    | +--------+   +------+ |
++ *                                    |_______________________|
++ *
++ * IPQ5018 MAC0 -> internal GePHY (phy@7), dp1 left disabled: no RJ45
++ *                 is wired to it, all four ports hang off the switch
++ * IPQ5018 MAC1 (dp2) -> Uniphy SGMII -> RTL8367S Port6 (CPU port)
++ * RTL8367S Phy0-3 -> Ports 1-4 -> LAN/WAN
++ * RTL8367S managed via MDIO1 @90000
++ * ===============================================================
++ */
++
++&switch {
++	status = "okay";
++
++	switch_mac_mode = <MAC_MODE_SGMII_CHANNEL0>;
++
++	qcom,port_phyinfo {
++		// MAC0 -> GE Phy (not wired)
++		port@0 {
++			port_id = <1>;
++			mdiobus = <&mdio0>;
++			phy_address = <7>;
++		};
++
++		// MAC1 ---SGMII---> RTL8367S Port6
++		port@1 {
++			port_id = <2>;
++			forced-speed = <1000>;
++			forced-duplex = <1>;
++		};
++	};
++};
++
++// MAC1 ---sgmii (UNIPHY)---> RTL8367S Port6 (CPU port)
++&dp2 {
++	status = "okay";
++
++	fixed-link {
++		speed = <1000>;
++		full-duplex;
++	};
++};
++
++&mdio0 {
++	status = "okay";
++};
++
++&mdio1 {
++	status = "okay";
++
++	pinctrl-0 = <&mdio1_pins>, <&switch_reset_pins>;
++	pinctrl-names = "default";
++	reset-gpios = <&tlmm 26 GPIO_ACTIVE_LOW>;
++
++	/* RTL8367S switch (Realtek RTL8365MB-compatible) via MDIO */
++	switch1: ethernet-switch@1d {
++		compatible = "realtek,rtl8365mb";
++		reg = <29>;
++
++		/*
++		 * Internal MDIO bus for the RTL8367S built-in PHYs. On 6.6
++		 * the DSA core registers its user MII bus from this subnode.
++		 */
++		mdio {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			rtl8367s_0: ethernet-phy@0 {
++				reg = <0>;
++			};
++
++			rtl8367s_1: ethernet-phy@1 {
++				reg = <1>;
++			};
++
++			rtl8367s_2: ethernet-phy@2 {
++				reg = <2>;
++			};
++
++			rtl8367s_3: ethernet-phy@3 {
++				reg = <3>;
++			};
++		};
++
++		ports {
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			port@0 {
++				reg = <0>;
++				label = "wan";
++				phy-handle = <&rtl8367s_0>;
++			};
++
++			port@1 {
++				reg = <1>;
++				label = "lan1";
++				phy-handle = <&rtl8367s_1>;
++			};
++
++			port@2 {
++				reg = <2>;
++				label = "lan2";
++				phy-handle = <&rtl8367s_2>;
++			};
++
++			port@3 {
++				reg = <3>;
++				label = "lan3";
++				phy-handle = <&rtl8367s_3>;
++			};
++
++			port@6 {
++				reg = <6>;
++				label = "cpu";
++				phy-mode = "sgmii";
++				ethernet = <&dp2>;
++
++				fixed-link {
++					speed = <1000>;
++					full-duplex;
++				};
++			};
++		};
++	};
++};
++
++&sleep_clk {
++	clock-frequency = <32000>;
++};
++
++&xo_board_clk {
++	clock-frequency = <24000000>;
++};
++
++&blsp1_uart1 {
++	status = "okay";
++
++	pinctrl-0 = <&serial_0_pins>;
++	pinctrl-names = "default";
++};
++
++&prng {
++	status = "okay";
++};
++
++&qfprom {
++	status = "okay";
++};
++
++&qpic_bam {
++	status = "okay";
++};
++
++&qpic_nand {
++	pinctrl-0 = <&qpic_pins>;
++	pinctrl-names = "default";
++	status = "okay";
++
++	nand@0 {
++		compatible = "spi-nand";
++		reg = <0>;
++		nand-ecc-engine = <&qpic_nand>;
++		nand-bus-width = <8>;
++
++		partitions {
++			compatible = "qcom,smem-part";
++		};
++	};
++};
++
++&tlmm {
++	button_pins: button-state {
++		pins = "gpio14";
++		function = "gpio";
++		drive-strength = <8>;
++		bias-pull-up;
++	};
++
++	mdio1_pins: mdio-state {
++		mdc-pins {
++			pins = "gpio36";
++			function = "mdc";
++			drive-strength = <8>;
++			bias-pull-up;
++		};
++
++		mdio-pins {
++			pins = "gpio37";
++			function = "mdio";
++			drive-strength = <8>;
++			bias-pull-up;
++		};
++	};
++
++	switch_reset_pins: switch-reset-state {
++		pins = "gpio26";
++		function = "gpio";
++		drive-strength = <8>;
++		bias-pull-down;
++	};
++
++	qpic_pins: qpic-state {
++		clock-pins {
++			pins = "gpio9";
++			function = "qspi_clk";
++			drive-strength = <8>;
++			bias-disable;
++		};
++
++		cs-pins {
++			pins = "gpio8";
++			function = "qspi_cs";
++			drive-strength = <8>;
++			bias-disable;
++		};
++
++		data-pins {
++			pins = "gpio4", "gpio5", "gpio6", "gpio7";
++			function = "qspi_data";
++			drive-strength = <8>;
++			bias-disable;
++		};
++	};
++
++	serial_0_pins: uart0-state {
++		tx-pins {
++			pins = "gpio29";
++			function = "blsp0_uart1";
++			drive-strength = <8>;
++			bias-disable;
++			output-high;
++		};
++
++		rx-pins {
++			pins = "gpio28";
++			function = "blsp0_uart1";
++			drive-strength = <8>;
++			bias-disable;
++			input-enable;
++		};
++	};
++};
++
++/*
++ * ath11k Wi-Fi consumes too large memory spaces and too few spaces are
++ * available for users. To prevent OOM when using LuCI or other softwares,
++ * disable Wi-Fi related peripherals at the moment.
++ */
++&q6v5_wcss {
++	status = "disabled";
++
++	memory-region = <&q6_mem_regions>;
++	firmware-name = "ath11k/IPQ5018/hw1.0/q6_fw.mdt",
++			"ath11k/IPQ5018/hw1.0/m3_fw.mdt",
++			"ath11k/QCN6122/hw1.0/m3_fw.mdt";
++
++	boot-args = <0x2 0x4 0x2 0x1b 0x0 0x0>;
++	/* pcie:1, len:4, updid:2, reset:gpio27 */
++
++	// IPQ5018
++	q6_wcss_pd1: pd-1 {
++		firmware-name = "ath11k/IPQ5018/hw1.0/q6_fw.mdt";
++
++		resets =
++			<&gcc GCC_WCSSAON_RESET>,
++			<&gcc GCC_WCSS_BCR>,
++			<&gcc GCC_CE_BCR>;
++		reset-names =
++			"wcss_aon_reset",
++			"wcss_reset",
++			"ce_reset";
++
++		clocks =
++			<&gcc GCC_WCSS_AHB_S_CLK>,
++			<&gcc GCC_WCSS_ACMT_CLK>,
++			<&gcc GCC_WCSS_AXI_M_CLK>;
++		clock-names =
++			"gcc_wcss_ahb_s_clk",
++			"gcc_wcss_acmt_clk",
++			"gcc_wcss_axi_m_clk";
++
++		interrupts-extended =
++			<&wcss_smp2p_in 8 IRQ_TYPE_NONE>,
++			<&wcss_smp2p_in 9 IRQ_TYPE_NONE>,
++			<&wcss_smp2p_in 12 IRQ_TYPE_NONE>,
++			<&wcss_smp2p_in 11 IRQ_TYPE_NONE>;
++		interrupt-names =
++			"fatal",
++			"ready",
++			"spawn-ack",
++			"stop-ack";
++
++		qcom,smem-states =
++			<&wcss_smp2p_out 8>,
++			<&wcss_smp2p_out 9>,
++			<&wcss_smp2p_out 10>;
++		qcom,smem-state-names =
++			"shutdown",
++			"stop",
++			"spawn";
++	};
++
++	// QCN6122
++	q6_wcss_pd2: pd-2 {
++		firmware-name = "ath11k/IPQ5018/hw1.0/q6_fw.mdt";
++
++		interrupts-extended =
++			<&wcss_smp2p_in 16 IRQ_TYPE_NONE>,
++			<&wcss_smp2p_in 17 IRQ_TYPE_NONE>,
++			<&wcss_smp2p_in 20 IRQ_TYPE_NONE>,
++			<&wcss_smp2p_in 19 IRQ_TYPE_NONE>;
++		interrupt-names =
++			"fatal",
++			"ready",
++			"spawn-ack",
++			"stop-ack";
++
++		qcom,smem-states =
++			<&wcss_smp2p_out 16>,
++			<&wcss_smp2p_out 17>,
++			<&wcss_smp2p_out 18>;
++		qcom,smem-state-names =
++			"shutdown",
++			"stop",
++			"spawn";
++	};
++};
++
++&wifi0 {
++	status = "disabled";
++
++	qcom,rproc = <&q6_wcss_pd1>;
++	qcom,ath11k-fw-memory-mode = <2>;
++	qcom,bdf-addr = <0x4c400000>;
++	qcom,ath11k-calibration-variant = "Mercusys-MR80X-v2";
++
++	ieee80211-freq-limit = <2400000 2483000>;
++};
++
++&wifi1 {
++	status = "disabled";
++
++	qcom,rproc = <&q6_wcss_pd2>;
++	qcom,userpd-subsys-name = "q6v5_wcss_userpd2";
++	qcom,ath11k-fw-memory-mode = <2>;
++	qcom,bdf-addr = <0x4d100000>;
++	qcom,m3-dump-addr = <0x4df00000>;
++	qcom,ath11k-calibration-variant = "Mercusys-MR80X-v2";
++
++	ieee80211-freq-limit = <5150000 5730000>;
++};
+diff --git a/target/linux/qualcommax/image/ipq50xx.mk b/target/linux/qualcommax/image/ipq50xx.mk
+index e69de29bb2..162a0d9f38 100644
+--- a/target/linux/qualcommax/image/ipq50xx.mk
++++ b/target/linux/qualcommax/image/ipq50xx.mk
+@@ -0,0 +1,33 @@
++DEVICE_VARS += MERCUSYS_SUPPORT_STRING
++
++# Wrap the OpenWrt UBI in a Mercusys fwup container the stock web UI accepts.
++# Keyless: the stock loader (nvrammanager) only RSA-checks fw-type "Cloud";
++# any other fw-type falls back to a salt-seeded MD5 integrity check.
++define Build/mercusys-fwup
++	$(TOPDIR)/scripts/mercusys-fwup.py $@ \
++		--fw-type $(if $(1),$(1),MR80X) \
++		--support "$(MERCUSYS_SUPPORT_STRING)" \
++		-o $@.new
++	mv $@.new $@
++endef
++
++define Device/mercusys_mr80x-v2
++	$(call Device/FitImageLzma)
++	DEVICE_VENDOR := MERCUSYS
++	DEVICE_MODEL := MR80X
++	DEVICE_VARIANT := v2
++	SOC := ipq5018
++	DEVICE_DTS_CONFIG := config@mp02.1
++	BLOCKSIZE := 128k
++	PAGESIZE := 2048
++	NAND_SIZE := 128m
++	KERNEL_IN_UBI := 1
++	IMAGE_SIZE := 43008k
++	DEVICE_PACKAGES := kmod-dsa-rtl8365mb
++	IMAGES += factory.bin
++	IMAGE/factory.bin := append-ubi | check-size | mercusys-fwup MR80X
++	MERCUSYS_SUPPORT_STRING := SupportList:\n \
++		{product_name:MR80X,product_ver:2.0.0,special_id:45550000}\n \
++		{product_name:MR80X,product_ver:2.0.0,special_id:55530000}\n
++endef
++TARGET_DEVICES += mercusys_mr80x-v2
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/01_leds b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/01_leds
+index 1d02ad370b..98bf9048d6 100644
+--- a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/01_leds
++++ b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/01_leds
+@@ -9,6 +9,12 @@ board_config_update
+ board=$(board_name)
+ 
+ case "$board" in
++mercusys,mr80x-v2)
++	ucidef_set_led_netdev "wan" "WAN" "green:wan" "wan" "tx rx link"
++	ucidef_set_led_netdev "lan1" "LAN1" "green:lan-1" "lan1" "tx rx link"
++	ucidef_set_led_netdev "lan2" "LAN2" "green:lan-2" "lan2" "tx rx link"
++	ucidef_set_led_netdev "lan3" "LAN3" "green:lan-3" "lan3" "tx rx link"
++	;;
+ esac
+ 
+ board_config_flush
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
+index 3a4b117371..fd18d90233 100644
+--- a/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
++++ b/target/linux/qualcommax/ipq50xx/base-files/etc/board.d/02_network
+@@ -7,12 +7,37 @@ ipq50xx_setup_interfaces()
+ {
+ 	local board="$1"
+ 	case $board in
++	mercusys,mr80x-v2)
++		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" "wan"
++		;;
++	esac
++}
++
++ipq50xx_setup_macs()
++{
++	local board="$1"
++	local label_mac=""
++
++	case $board in
++	mercusys,mr80x-v2)
++		# factory MAC is 6 raw bytes in tp_data/default-mac, mounted
++		# read-only during preinit (see lib/preinit/09_mount_tp_data)
++		label_mac=$(get_mac_binary "/tmp/tp_data/default-mac" 0)
++		[ -n "$label_mac" ] || return
++		ucidef_set_interface_macaddr "lan" "$label_mac"
++		ucidef_set_interface_macaddr "wan" "$(macaddr_add "$label_mac" 1)"
++		ucidef_set_label_macaddr "$label_mac"
++		# dp2 has no nvmem MAC source, so nss-dp would randomise the
++		# DSA conduit's address on every boot - pin it to the label MAC
++		ucidef_set_network_device_mac "eth0" "$label_mac"
++		;;
+ 	esac
+ }
+ 
+ board_config_update
+ board=$(board_name)
+ ipq50xx_setup_interfaces $board
++ipq50xx_setup_macs $board
+ board_config_flush
+ 
+ exit 0
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata b/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
+index f1cafc52d6..ecef54e6c9 100644
+--- a/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
++++ b/target/linux/qualcommax/ipq50xx/base-files/etc/hotplug.d/firmware/11-ath11k-caldata
+@@ -9,10 +9,22 @@ board=$(board_name)
+ case "$FIRMWARE" in
+ "ath11k/IPQ5018/hw1.0/cal-ahb-c000000.wifi.bin")
+ 	case "$board" in
++	mercusys,mr80x-v2)
++		caldata_extract "0:art" 0x1000 0x20000
++		label_mac=$(get_mac_binary "/tmp/tp_data/default-mac" 0)
++		[ -n "$label_mac" ] && ath11k_patch_mac "$(macaddr_add "$label_mac" -1)" 0
++		ath11k_set_macflag
++		;;
+ 	esac
+ 	;;
+ "ath11k/QCN6122/hw1.0/cal-ahb-b00a040.wifi1.bin")
+ 	case "$board" in
++	mercusys,mr80x-v2)
++		caldata_extract "0:art" 0x26800 0x20000
++		label_mac=$(get_mac_binary "/tmp/tp_data/default-mac" 0)
++		[ -n "$label_mac" ] && ath11k_patch_mac "$(macaddr_add "$label_mac" -2)" 0
++		ath11k_set_macflag
++		;;
+ 	esac
+ 	;;
+ "ath11k/QCN9074/hw1.0/cal-pci-0000:01:00.0.bin")
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/lib/preinit/09_mount_tp_data b/target/linux/qualcommax/ipq50xx/base-files/lib/preinit/09_mount_tp_data
+new file mode 100644
+index 0000000000..693bd66494
+--- /dev/null
++++ b/target/linux/qualcommax/ipq50xx/base-files/lib/preinit/09_mount_tp_data
+@@ -0,0 +1,30 @@
++#!/bin/sh
++# TP-Link/Mercusys boards keep their factory data (including the 6-byte
++# "default-mac") in the tp_data UBIFS volume. Attach and mount it read-only
++# during preinit so board.d/02_network and the ath11k caldata hotplug can
++# read the MAC without each attaching the volume themselves.
++
++. /lib/functions.sh
++
++preinit_mount_tp_data() {
++	case "$(board_name)" in
++	mercusys,mr80x-v2) ;;
++	*) return ;;
++	esac
++
++	# ubiattach lives in /usr/sbin, which the preinit PATH omits
++	local PATH="/usr/sbin:/usr/bin:$PATH"
++	local mtd_num ubi_num
++
++	mtd_num=$(find_mtd_index tp_data)
++	[ -n "$mtd_num" ] || return
++
++	ubi_num=$(ubiattach -m "$mtd_num" 2>/dev/null | \
++		sed -n 's/.*device number \([0-9]*\).*/\1/p')
++	[ -n "$ubi_num" ] || return
++
++	mkdir -p /tmp/tp_data
++	mount -t ubifs -o ro "ubi${ubi_num}:tp_data" /tmp/tp_data 2>/dev/null
++}
++
++boot_hook_add preinit_main preinit_mount_tp_data
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh b/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh
+index a206d11496..ad59eb7941 100644
+--- a/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh
++++ b/target/linux/qualcommax/ipq50xx/base-files/lib/upgrade/platform.sh
+@@ -35,6 +35,50 @@ platform_check_image() {
+ 
+ platform_do_upgrade() {
+ 	case "$(board_name)" in
++	mercusys,mr80x-v2)
++		# A/B: write the inactive slot, then point tp_boot_idx at it.
++		# tp_boot_idx=0 boots "rootfs", 1 boots "rootfs_1". primaryboot
++		# must stay 0, the stock loader and the button recovery pick the
++		# slot by name from tp_boot_idx alone. tp_boot_idx only changes
++		# once the new slot is fully written.
++		local tp active target newtp primaryboot bcidx bcfile
++
++		# Warn only, flipping primaryboot here would desync the running
++		# and the next-boot slot names.
++		bcidx=$(find_mtd_index "0:bootconfig")
++		if [ -n "$bcidx" ]; then
++			bcfile=/tmp/mtd"$bcidx".bin
++			dd if=/dev/mtd"$bcidx" of="$bcfile" bs=1 count=336 2>/dev/null
++			primaryboot=$(get_bootconfig_primaryboot "$bcfile" "rootfs")
++			[ "$primaryboot" = "0" ] || \
++				echo "WARNING: primaryboot=$primaryboot (expected 0); slot selection may be inverted"
++		fi
++
++		tp=$(fw_printenv -n tp_boot_idx 2>/dev/null)
++		case "$tp" in
++			1) active="rootfs_1"; target="rootfs";   newtp=0 ;;
++			*) active="rootfs";   target="rootfs_1"; newtp=1 ;;
++		esac
++
++		if [ -n "$UPGRADE_OPT_USE_CURR_PART" ]; then
++			CI_UBIPART="$active"
++		else
++			CI_UBIPART="$target"
++		fi
++
++		remove_oem_ubi_volume ubi_rootfs
++		remove_oem_ubi_volume wifi_fw
++		remove_oem_ubi_volume bt_fw
++		sync
++		nand_do_flash_file "$1" || nand_do_upgrade_failed
++		if [ -z "$UPGRADE_OPT_USE_CURR_PART" ]; then
++			fw_setenv tp_boot_idx "$newtp" || {
++				echo "failed to set tp_boot_idx"
++				nand_do_upgrade_failed
++			}
++		fi
++		nand_do_upgrade_success
++		;;
+ 	*)
+ 		default_do_upgrade "$1"
+ 		;;
+-- 
+2.53.0
+

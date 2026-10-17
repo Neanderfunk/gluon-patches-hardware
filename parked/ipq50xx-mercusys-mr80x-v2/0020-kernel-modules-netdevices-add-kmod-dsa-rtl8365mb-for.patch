@@ -1,0 +1,71 @@
+From 859e43a4c53884ccd13212dc61520781a35936ef Mon Sep 17 00:00:00 2001
+From: adorfer <adorferen@gmail.com>
+Date: Tue, 13 Oct 2026 18:25:53 +0200
+Subject: [PATCH 20/42] kernel: modules: netdevices: add kmod-dsa-rtl8365mb for
+ 6.6
+
+Package the upstream Realtek RTL8365MB DSA driver (RTL8365MB-VC,
+RTL8367S, RTL8367RB-VB) for the 6.6 kernel used by openwrt-24.10.
+
+Modelled on kmod-dsa-rtl8365mb from main (62a5280b8b68 "kernel: modules:
+netdevices: add realtek DSA modules"), but without the rtl83xx/realtek_dsa
+restructuring backports that commit carried: on 6.6 the driver still uses
+the old module layout, so the package ships the MDIO interface driver
+realtek-mdio.ko (which links against rtl8365mb.ko through the exported
+rtl8365mb_variant) together with rtl8365mb.ko and the tagger
+tag_rtl8_4.ko. The SMI interface and the RTL8366RB subdriver are switched
+off explicitly so that no new Kconfig symbol is left without a value when
+the package is selected; with the package unselected NET_DSA_REALTEK
+stays unset and the kernel configuration of other targets is unchanged.
+
+tag_rtl8_4 is listed in AUTOLOAD as well. DSA would request it through
+request_module("dsa_tag:id-24"), which kmodloader resolves via the alias
+kept in the module, but loading it at boot does not depend on the usermode
+helper. AutoLoad sorts the list, so this is not an ordering guarantee.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ package/kernel/linux/modules/netdevices.mk | 27 ++++++++++++++++++++++
+ 1 file changed, 27 insertions(+)
+
+diff --git a/package/kernel/linux/modules/netdevices.mk b/package/kernel/linux/modules/netdevices.mk
+index 6e20273fe4..da8a9ed645 100644
+--- a/package/kernel/linux/modules/netdevices.mk
++++ b/package/kernel/linux/modules/netdevices.mk
+@@ -665,6 +665,33 @@ endef
+ 
+ $(eval $(call KernelPackage,dsa-qca8k))
+ 
++
++define KernelPackage/dsa-rtl8365mb
++  SUBMENU:=$(NETWORK_DEVICES_MENU)
++  TITLE:=Realtek RTL8365MB switch DSA support
++  DEPENDS:=+kmod-dsa +kmod-phy-realtek +kmod-regmap-core @!TARGET_x86 @!TARGET_bcm47xx @!TARGET_uml
++  KCONFIG:= \
++	CONFIG_NET_DSA_REALTEK \
++	CONFIG_NET_DSA_REALTEK_MDIO \
++	CONFIG_NET_DSA_REALTEK_SMI=n \
++	CONFIG_NET_DSA_REALTEK_RTL8365MB \
++	CONFIG_NET_DSA_REALTEK_RTL8366RB=n \
++	CONFIG_NET_DSA_TAG_RTL8_4
++  FILES:= \
++	$(LINUX_DIR)/drivers/net/dsa/realtek/realtek-mdio.ko \
++	$(LINUX_DIR)/drivers/net/dsa/realtek/rtl8365mb.ko \
++	$(LINUX_DIR)/net/dsa/tag_rtl8_4.ko
++  AUTOLOAD:=$(call AutoLoad,42,tag_rtl8_4 rtl8365mb realtek-mdio,1)
++endef
++
++define KernelPackage/dsa-rtl8365mb/description
++  DSA based kernel modules for the Realtek RTL8365MB switch family
++  (RTL8365MB-VC, RTL8367S, RTL8367RB-VB) attached via MDIO
++endef
++
++$(eval $(call KernelPackage,dsa-rtl8365mb))
++
++
+ define KernelPackage/swconfig
+   SUBMENU:=$(NETWORK_DEVICES_MENU)
+   TITLE:=switch configuration API
+-- 
+2.53.0
+

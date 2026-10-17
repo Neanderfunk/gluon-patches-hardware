@@ -1,0 +1,132 @@
+From 62e567ad3644ed240c69055d26812d6f2636a7dd Mon Sep 17 00:00:00 2001
+From: Johan Alvarado <contact@c127.dev>
+Date: Thu, 13 Aug 2026 19:27:41 -0500
+Subject: [PATCH 41/42] qualcommax: ipq50xx: enable Wi-Fi on the Mercusys MR80X
+ v2
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+kmod-ath11k-smallbuffers frees 25-30 MiB per radio, enough for both
+radios plus LuCI. Two VM knobs are still needed:
+
+- vm.min_free_kbytes=10240 for the GFP_ATOMIC skbs in the ath11k RX path
+- vm.watermark_boost_factor=0, boosting can raise the watermarks by
+  22.5 MiB here and OOM the board
+
+Signed-off-by: Johan Alvarado <contact@c127.dev>
+
+[Neanderfunk: an Kernel 6.6 / OpenWrt 24.10 angepasst: DTS-Teil auf die
+6.6-Knoten umgesetzt (q6v5_wcss mit pd-1/pd-2, wifi0/wifi1, pcie0_phy).
+Firmware heißt in der 6.6-Zeit ath11k-firmware-qcn6122 (zieht
+ath11k-firmware-ipq5018 nach, das ist ohnehin Target-Standard).
+Paketzeile "-kmod-ath11k-ahb -kmod-ath11k kmod-ath11k-smallbuffers" in
+dieser Reihenfolge, weil opkg sonst kmod-ath11k nicht entfernt; das
+AHB-Modul steckt dafür im smallbuffers-Paket (vorheriger Commit).]
+(cherry picked from commit fad877b78995d36589d4a12f2a59a3882d954d20)
+---
+ .../arm64/boot/dts/qcom/ipq5018-mr80x-v2.dts  | 17 ++++++++---------
+ target/linux/qualcommax/image/ipq50xx.mk      |  5 ++++-
+ .../etc/uci-defaults/99-lowmemory-sysctl      | 19 +++++++++++++++++++
+ 3 files changed, 31 insertions(+), 10 deletions(-)
+ create mode 100755 target/linux/qualcommax/ipq50xx/base-files/etc/uci-defaults/99-lowmemory-sysctl
+
+diff --git a/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq5018-mr80x-v2.dts b/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq5018-mr80x-v2.dts
+index e42cdf4ecb..ac7209238d 100644
+--- a/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq5018-mr80x-v2.dts
++++ b/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq5018-mr80x-v2.dts
+@@ -235,6 +235,10 @@
+ 	};
+ };
+ 
++&pcie0_phy {
++	status = "okay";
++};
++
+ &sleep_clk {
+ 	clock-frequency = <32000>;
+ };
+@@ -352,13 +356,8 @@
+ 	};
+ };
+ 
+-/*
+- * ath11k Wi-Fi consumes too large memory spaces and too few spaces are
+- * available for users. To prevent OOM when using LuCI or other softwares,
+- * disable Wi-Fi related peripherals at the moment.
+- */
+ &q6v5_wcss {
+-	status = "disabled";
++	status = "okay";
+ 
+ 	memory-region = <&q6_mem_regions>;
+ 	firmware-name = "ath11k/IPQ5018/hw1.0/q6_fw.mdt",
+@@ -438,7 +437,7 @@
+ };
+ 
+ &wifi0 {
+-	status = "disabled";
++	status = "okay";
+ 
+ 	qcom,rproc = <&q6_wcss_pd1>;
+ 	qcom,ath11k-fw-memory-mode = <2>;
+@@ -449,7 +448,7 @@
+ };
+ 
+ &wifi1 {
+-	status = "disabled";
++	status = "okay";
+ 
+ 	qcom,rproc = <&q6_wcss_pd2>;
+ 	qcom,userpd-subsys-name = "q6v5_wcss_userpd2";
+@@ -458,5 +457,5 @@
+ 	qcom,m3-dump-addr = <0x4df00000>;
+ 	qcom,ath11k-calibration-variant = "Mercusys-MR80X-v2";
+ 
+-	ieee80211-freq-limit = <5150000 5730000>;
++	ieee80211-freq-limit = <5150000 5835000>;
+ };
+diff --git a/target/linux/qualcommax/image/ipq50xx.mk b/target/linux/qualcommax/image/ipq50xx.mk
+index 162a0d9f38..56fe12e060 100644
+--- a/target/linux/qualcommax/image/ipq50xx.mk
++++ b/target/linux/qualcommax/image/ipq50xx.mk
+@@ -23,7 +23,10 @@ define Device/mercusys_mr80x-v2
+ 	NAND_SIZE := 128m
+ 	KERNEL_IN_UBI := 1
+ 	IMAGE_SIZE := 43008k
+-	DEVICE_PACKAGES := kmod-dsa-rtl8365mb
++	DEVICE_PACKAGES := ath11k-firmware-qcn6122 \
++		ipq-wifi-mercusys_mr80x-v2 \
++		-kmod-ath11k-ahb -kmod-ath11k kmod-ath11k-smallbuffers \
++		kmod-dsa-rtl8365mb
+ 	IMAGES += factory.bin
+ 	IMAGE/factory.bin := append-ubi | check-size | mercusys-fwup MR80X
+ 	MERCUSYS_SUPPORT_STRING := SupportList:\n \
+diff --git a/target/linux/qualcommax/ipq50xx/base-files/etc/uci-defaults/99-lowmemory-sysctl b/target/linux/qualcommax/ipq50xx/base-files/etc/uci-defaults/99-lowmemory-sysctl
+new file mode 100755
+index 0000000000..155a7f2b51
+--- /dev/null
++++ b/target/linux/qualcommax/ipq50xx/base-files/etc/uci-defaults/99-lowmemory-sysctl
+@@ -0,0 +1,19 @@
++#!/bin/sh
++# VM tuning for the Mercusys MR80X (IPQ5018, 256MB).
++
++. /lib/functions.sh
++
++[ "$(board_name)" = "mercusys,mr80x-v2" ] || exit 0
++
++cat > /etc/sysctl.d/99-mr80x.conf <<'EOF'
++# Reserve for the GFP_ATOMIC skbs of the ath11k RX softirq path.
++# Do not go below ~8192.
++vm.min_free_kbytes=10240
++# Boosting can raise the zone watermarks by up to 22.5MB here, a fifth of
++# usable RAM, and nothing on this board needs high-order allocations.
++vm.watermark_boost_factor=0
++EOF
++
++sysctl -p /etc/sysctl.d/99-mr80x.conf >/dev/null 2>&1
++
++exit 0
+-- 
+2.53.0
+

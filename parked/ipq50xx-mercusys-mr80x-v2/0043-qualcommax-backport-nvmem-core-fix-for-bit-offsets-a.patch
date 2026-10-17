@@ -1,0 +1,112 @@
+From 9c235fbde7d24650b4164e166c71cb9d150abad0 Mon Sep 17 00:00:00 2001
+From: adorfer <adorferen@gmail.com>
+Date: Sat, 17 Oct 2026 05:33:35 +0200
+Subject: [PATCH] qualcommax: backport nvmem core fix for bit offsets above one
+ byte
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Linux 6.6.151 already carries the stable backport "nvmem: qfprom: switch
+to 4-byte aligned reads". Its fixup_dt_cell_info() moves a cell such as
+base1@249 (bits <3 8>) to offset 0x248 with bit_offset 11, but the 6.6
+nvmem core cannot shift by more than 7 bits, so every qfprom cell that
+does not start on a 4-byte boundary reads as 0.
+
+On IPQ5018 this zeroes base1/base2 and most per-sensor points of the
+tsens calibration. Sensor 3 (top-glue) then reads above 700 °C and the
+thermal core forces an emergency reboot 1.5 s into every boot
+(Mercusys MR80X v2 / MR3000X v2.0, Test Neanderfunk, 17.10.2026).
+Kernel 6.18 from OpenWrt main on the same device computes slopes and
+offsets that match the fuses (e.g. sensor 3: 3111/310670) and reads
+43-44 °C.
+
+Backport upstream 7a06ef75107799675ea6e4d73b9df37e18e352a8 (v6.15).
+It applies after the generic nvmem backports, hence qualcommax.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ ...ix-bit-offsets-of-more-than-one-byte.patch | 71 +++++++++++++++++++
+ 1 file changed, 71 insertions(+)
+ create mode 100644 target/linux/qualcommax/patches-6.6/0083-v6.15-nvmem-core-fix-bit-offsets-of-more-than-one-byte.patch
+
+diff --git a/target/linux/qualcommax/patches-6.6/0083-v6.15-nvmem-core-fix-bit-offsets-of-more-than-one-byte.patch b/target/linux/qualcommax/patches-6.6/0083-v6.15-nvmem-core-fix-bit-offsets-of-more-than-one-byte.patch
+new file mode 100644
+index 0000000000..dce7664bf1
+--- /dev/null
++++ b/target/linux/qualcommax/patches-6.6/0083-v6.15-nvmem-core-fix-bit-offsets-of-more-than-one-byte.patch
+@@ -0,0 +1,71 @@
++From 7a06ef75107799675ea6e4d73b9df37e18e352a8 Mon Sep 17 00:00:00 2001
++From: Dmitry Baryshkov <dmitry.baryshkov@linaro.org>
++Date: Fri, 11 Apr 2025 12:22:46 +0100
++Subject: nvmem: core: fix bit offsets of more than one byte
++
++If the NVMEM specifies a stride to access data, reading particular cell
++might require bit offset that is bigger than one byte. Rework NVMEM core
++code to support bit offsets of more than 8 bits.
++
++Signed-off-by: Dmitry Baryshkov <dmitry.baryshkov@linaro.org>
++Signed-off-by: Srinivas Kandagatla <srinivas.kandagatla@linaro.org>
++Link: https://lore.kernel.org/r/20250411112251.68002-9-srinivas.kandagatla@linaro.org
++Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
++---
++ drivers/nvmem/core.c | 24 +++++++++++++++++-------
++ 1 file changed, 17 insertions(+), 7 deletions(-)
++
++diff --git a/drivers/nvmem/core.c b/drivers/nvmem/core.c
++index fff85bbf0ecd0f..7872903c08a112 100644
++--- a/drivers/nvmem/core.c
+++++ b/drivers/nvmem/core.c
++@@ -837,7 +837,9 @@ static int nvmem_add_cells_from_dt(struct nvmem_device *nvmem, struct device_nod
++ 		if (addr && len == (2 * sizeof(u32))) {
++ 			info.bit_offset = be32_to_cpup(addr++);
++ 			info.nbits = be32_to_cpup(addr);
++-			if (info.bit_offset >= BITS_PER_BYTE || info.nbits < 1) {
+++			if (info.bit_offset >= BITS_PER_BYTE * info.bytes ||
+++			    info.nbits < 1 ||
+++			    info.bit_offset + info.nbits > BITS_PER_BYTE * info.bytes) {
++ 				dev_err(dev, "nvmem: invalid bits on %pOF\n", child);
++ 				of_node_put(child);
++ 				return -EINVAL;
++@@ -1630,21 +1632,29 @@ EXPORT_SYMBOL_GPL(nvmem_cell_put);
++ static void nvmem_shift_read_buffer_in_place(struct nvmem_cell_entry *cell, void *buf)
++ {
++ 	u8 *p, *b;
++-	int i, extra, bit_offset = cell->bit_offset;
+++	int i, extra, bytes_offset;
+++	int bit_offset = cell->bit_offset;
++ 
++ 	p = b = buf;
++-	if (bit_offset) {
+++
+++	bytes_offset = bit_offset / BITS_PER_BYTE;
+++	b += bytes_offset;
+++	bit_offset %= BITS_PER_BYTE;
+++
+++	if (bit_offset % BITS_PER_BYTE) {
++ 		/* First shift */
++-		*b++ >>= bit_offset;
+++		*p = *b++ >> bit_offset;
++ 
++ 		/* setup rest of the bytes if any */
++ 		for (i = 1; i < cell->bytes; i++) {
++ 			/* Get bits from next byte and shift them towards msb */
++-			*p |= *b << (BITS_PER_BYTE - bit_offset);
+++			*p++ |= *b << (BITS_PER_BYTE - bit_offset);
++ 
++-			p = b;
++-			*b++ >>= bit_offset;
+++			*p = *b++ >> bit_offset;
++ 		}
+++	} else if (p != b) {
+++		memmove(p, b, cell->bytes - bytes_offset);
+++		p += cell->bytes - 1;
++ 	} else {
++ 		/* point to the msb */
++ 		p += cell->bytes - 1;
++-- 
++cgit 1.3.1-korg
++
+-- 
+2.53.0
+

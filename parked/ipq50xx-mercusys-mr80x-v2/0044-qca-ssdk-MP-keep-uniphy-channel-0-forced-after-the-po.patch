@@ -1,0 +1,72 @@
+From a24c98e836d9594d90ec9549af4901e9a6436bd1 Mon Sep 17 00:00:00 2001
+From: adorfer <adorferen@gmail.com>
+Date: Sat, 17 Oct 2026 06:23:58 +0200
+Subject: [PATCH] qca-ssdk: MP: keep uniphy channel 0 forced after the port
+ reset
+
+With forced-speed on port 2 (MR80X v2: RTL8367S on SGMII) the uniphy
+channel ended up in autoneg after adpt_mp_gcc_uniphy_port_reset() and
+never got link, so no frame passed between eth0 and the switch.
+Re-apply the force bit after reset and calibration.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ ...ep-channel-0-forced-after-port-reset.patch | 46 +++++++++++++++++++
+ 1 file changed, 46 insertions(+)
+ create mode 100644 package/kernel/qca-ssdk/patches/123-MP-uniphy-keep-channel-0-forced-after-port-reset.patch
+
+diff --git a/package/kernel/qca-ssdk/patches/123-MP-uniphy-keep-channel-0-forced-after-port-reset.patch b/package/kernel/qca-ssdk/patches/123-MP-uniphy-keep-channel-0-forced-after-port-reset.patch
+new file mode 100644
+index 0000000000..fcbbe298f5
+--- /dev/null
++++ b/package/kernel/qca-ssdk/patches/123-MP-uniphy-keep-channel-0-forced-after-port-reset.patch
+@@ -0,0 +1,46 @@
++From: adorfer <adorferen@gmail.com>
++Subject: [PATCH] MP: uniphy: keep channel 0 forced after the port reset
++
++With forced-speed on port 2 the uniphy channel must run without in-band
++autoneg. The force bit is written before adpt_mp_gcc_uniphy_port_reset(),
++and afterwards channel 0 is back to autoneg (0x844). Against a RTL8367S
++SerDes, which sends no SGMII autoneg, the channel then never gets link:
++the switch CPU port transmits, eth0 receives nothing, and the switch
++sees nothing from eth0.
++
++Set the force bit again once the reset and the calibration are done.
++Measured on a Mercusys MR80X v2 (IPQ5018, RTL8367S on SGMII): channel 0
++status goes from 0x60 to 0xe0 (link, full duplex, 1000) and traffic
++passes both ways.
++
++Signed-off-by: adorfer <adorferen@gmail.com>
++---
++--- a/src/adpt/mp/adpt_mp_uniphy.c
+++++ b/src/adpt/mp/adpt_mp_uniphy.c
++@@ -372,6 +372,26 @@
++ 		ssdk_mp_raw_clock_set(index + 1, UNIPHY_TX, clock);
++ 	}
++ 
+++	/* adpt_mp_uniphy_mode_ctrl_set() set the force bit before the gcc
+++	 * port reset above, yet afterwards channel 0 reads back with autoneg
+++	 * enabled and the force bit clear (0x844 on a Mercusys MR80X v2).
+++	 * A forced-speed port has no in-band autoneg on the far side (here
+++	 * a RTL8367S SerDes), so the channel never reports link and no frame
+++	 * passes. Force it again; the adapter reset in
+++	 * adpt_mp_port_mac_speed_set() follows.
+++	 */
+++	if (hsl_port_feature_get(dev_id, SSDK_PHYSICAL_PORT2, PHY_F_FORCE)) {
+++		union uniphy_channel0_input_output_4_u ch0;
+++
+++		memset(&ch0, 0, sizeof(ch0));
+++		rv = hppe_uniphy_channel0_input_output_4_get(dev_id, index, &ch0);
+++		SW_RTN_ON_ERROR (rv);
+++		ch0.bf.newaddedfromhere_ch0_force_speed_25m =
+++			UNIPHY_FORCE_SPEED_ENABLE;
+++		rv = hppe_uniphy_channel0_input_output_4_set(dev_id, index, &ch0);
+++		SW_RTN_ON_ERROR (rv);
+++	}
+++
++ 	if (mode == PORT_WRAPPER_SGMII_CHANNEL0) {
++ 		SSDK_DEBUG("mp uniphy %d sgmii configuration is done!\n", index);
++ 	} else {
+-- 
+2.53.0
+

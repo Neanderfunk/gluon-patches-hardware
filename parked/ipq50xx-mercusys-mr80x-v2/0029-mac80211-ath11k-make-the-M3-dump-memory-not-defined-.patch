@@ -1,0 +1,40 @@
+From 3b64214274f690a93d030770386355134c93135f Mon Sep 17 00:00:00 2001
+From: Robert Marko <robimarko@gmail.com>
+Date: Sat, 14 Mar 2026 21:48:58 +0100
+Subject: [PATCH 29/42] mac80211: ath11k: make the M3 dump memory not defined a
+ debug message
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+There is no point in printing the missing M3 memory dump adress message
+on each boot under the warning level, as not all boards need it at all.
+
+So, degrate it to a debug print with QMI mask.
+
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+
+(cherry picked from commit 2a7cb484e958c2bb9196d6ef9a2362cd16ed0996)
+
+[Neanderfunk: an Kernel 6.6 / OpenWrt 24.10 angepasst: Änderung auf die
+931-Fassung für backports 6.12.96 übertragen.]
+---
+ .../931-wifi-ath11k-Support-to-assign-m3-dump-memory.patch      | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/package/kernel/mac80211/patches/ath11k/931-wifi-ath11k-Support-to-assign-m3-dump-memory.patch b/package/kernel/mac80211/patches/ath11k/931-wifi-ath11k-Support-to-assign-m3-dump-memory.patch
+index d1837112dc..3602308eb6 100644
+--- a/package/kernel/mac80211/patches/ath11k/931-wifi-ath11k-Support-to-assign-m3-dump-memory.patch
++++ b/package/kernel/mac80211/patches/ath11k/931-wifi-ath11k-Support-to-assign-m3-dump-memory.patch
+@@ -16,7 +16,7 @@ Signed-off-by: Ziyang Huang <hzyitc@outlook.com>
+  			break;
+ +		case M3_DUMP_REGION_TYPE:
+ +			if (of_property_read_u32(dev->of_node, "qcom,m3-dump-addr", &addr)) {
+-+				ath11k_warn(ab, "qmi fail to get qcom,m3-dump-addr, ignore m3 dump mem req\n");
+++				ath11k_dbg(ab, ATH11K_DBG_QMI, "qmi fail to get qcom,m3-dump-addr, ignore m3 dump mem req\n");
+ +				break;
+ +			}
+ +
+-- 
+2.53.0
+

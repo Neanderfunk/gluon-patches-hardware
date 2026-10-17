@@ -1,0 +1,784 @@
+From ec87279b31d9dff177f91510ed019fa1ff8045d6 Mon Sep 17 00:00:00 2001
+From: Hauke Mehrtens <hauke@hauke-m.de>
+Date: Thu, 1 Jan 2026 19:40:06 +0100
+Subject: [PATCH 07/42] kernel: QCOM SPI NAND: backport multiple fixes
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+These patches fix bugs in a patch we backported.
+
+These patch were cherry picked from upstream Linux because it references
+a patch we backported in the fixes tag.
+
+The patches were reordered to match the ordering in the upstream Linux kernel.
+
+Fixes: 93173aee96e7 ("qualcommbe: ipq95xx: Add initial support for new target")
+Link: https://github.com/openwrt/openwrt/pull/21366
+Signed-off-by: Hauke Mehrtens <hauke@hauke-m.de>
+
+[Neanderfunk: an Kernel 6.6 / OpenWrt 24.10 angepasst: die Patches aus
+generic/backport-6.12 (412-422) liegen hier als qualcommax/patches-6.6/
+0412-0420 und gehen ohne Fuzz auf den 6.6-Stand des Treibers; 411 (Makefile)
+entfällt, weil qpic_common.o hier nur mit CONFIG_SPI_QPIC_SNAND gebaut wird;
+416 ohne den qcom_nandc.c-Teil (raw-NAND-Treiber bleibt unverändert);
+hack-6.12/430 und die realtek/qualcommax-6.12-Refreshes entfallen.
+412, 416 und 417 hatte main für 6.6 schon über c5e359a236 (pending-6.6/
+416-09..11); hier stehen sie in der gemergten Upstream-Fassung.]
+
+(cherry picked from commit 5230157a165aa513416de7e959d315301e06a0a3)
+---
+ ...te-user-chip-specific-ECC-properties.patch | 166 ++++++++++++++++++
+ ...c-snand-use-CW_PER_PAGE_MASK-bitmask.patch | 113 ++++++++++++
+ ...ic-snand-reallocate-BAM-transactions.patch |  81 +++++++++
+ ...-qpic-snand-don-t-hardcode-ECC-steps.patch |  31 ++++
+ ...mmon-add-defines-for-ECC_MODE-values.patch |  47 +++++
+ ...-add-support-for-8-bits-ECC-strength.patch |  66 +++++++
+ ...nd-use-correct-CW_PER_PAGE-value-for.patch |  56 ++++++
+ ...nd-fix-calculating-of-ECC-OOB-region.patch |  69 ++++++++
+ ...nd-unregister-ECC-engine-on-probe-er.patch |  48 +++++
+ 9 files changed, 677 insertions(+)
+ create mode 100644 target/linux/qualcommax/patches-6.6/0412-v6.16-spi-spi-qpic-snand-validate-user-chip-specific-ECC-properties.patch
+ create mode 100644 target/linux/qualcommax/patches-6.6/0413-v6.16-spi-spi-qpic-snand-use-CW_PER_PAGE_MASK-bitmask.patch
+ create mode 100644 target/linux/qualcommax/patches-6.6/0414-v6.16-spi-spi-qpic-snand-reallocate-BAM-transactions.patch
+ create mode 100644 target/linux/qualcommax/patches-6.6/0415-v6.16-spi-spi-qpic-snand-don-t-hardcode-ECC-steps.patch
+ create mode 100644 target/linux/qualcommax/patches-6.6/0416-v6.17-mtd-nand-qpic-common-add-defines-for-ECC_MODE-values.patch
+ create mode 100644 target/linux/qualcommax/patches-6.6/0417-v6.17-spi-spi-qpic-snand-add-support-for-8-bits-ECC-strength.patch
+ create mode 100644 target/linux/qualcommax/patches-6.6/0418-v6.17-spi-spi-qpic-snand-use-correct-CW_PER_PAGE-value-for.patch
+ create mode 100644 target/linux/qualcommax/patches-6.6/0419-v6.17-spi-spi-qpic-snand-fix-calculating-of-ECC-OOB-region.patch
+ create mode 100644 target/linux/qualcommax/patches-6.6/0420-v6.17-spi-spi-qpic-snand-unregister-ECC-engine-on-probe-er.patch
+
+diff --git a/target/linux/qualcommax/patches-6.6/0412-v6.16-spi-spi-qpic-snand-validate-user-chip-specific-ECC-properties.patch b/target/linux/qualcommax/patches-6.6/0412-v6.16-spi-spi-qpic-snand-validate-user-chip-specific-ECC-properties.patch
+new file mode 100644
+index 0000000000..2f951564c1
+--- /dev/null
++++ b/target/linux/qualcommax/patches-6.6/0412-v6.16-spi-spi-qpic-snand-validate-user-chip-specific-ECC-properties.patch
+@@ -0,0 +1,166 @@
++From 65cb56d49f6edea409600a3c61effc70ee5d43d8 Mon Sep 17 00:00:00 2001
++From: Gabor Juhos <j4g8y7@gmail.com>
++Date: Thu, 1 May 2025 18:19:16 +0200
++Subject: spi: spi-qpic-snand: validate user/chip specific ECC properties
++
++The driver only supports 512 bytes ECC step size and 4 bit ECC strength
++at the moment, however it does not reject unsupported step/strength
++configurations. Due to this, whenever the driver is used with a flash
++chip which needs stronger ECC protection, the following warning is shown
++in the kernel log:
++
++  [    0.574648] spi-nand spi0.0: GigaDevice SPI NAND was found.
++  [    0.635748] spi-nand spi0.0: 256 MiB, block size: 128 KiB, page size: 2048, OOB size: 128
++  [    0.649079] nand: WARNING: (null): the ECC used on your system is too weak compared to the one required by the NAND chip
++
++Although the message indicates that something is wrong, but it often gets
++unnoticed, which can cause serious problems. For example when the user
++writes something into the flash chip despite the warning, the written data
++may won't be readable by the bootloader or by the boot ROM. In the worst
++case, when the attached SPI NAND chip is the boot device, the board may not
++be able to boot anymore.
++
++Also, it is not even possible to create a backup of the flash, because
++reading its content results in bogus data. For example, dumping the first
++page of the flash gives this:
++
++  # hexdump -C -n 2048 /dev/mtd0
++  00000000  0f 0f 0f 0f 0f 0f 0f 0f  0f 0f 0f 0f 0f 0f 0f 0f  |................|
++  *
++  00000040  0f 0f 0f 0f 0f 0f 0f 0d  0f 0f 0f 0f 0f 0f 0f 0f  |................|
++  00000050  0f 0f 0f 0f 0f 0f 0f 0f  0f 0f 0f 0f 0f 0f 0f 0f  |................|
++  *
++  000001c0  0f 0f 0f 0f ff 0f 0f 0f  0f 0f 0f 0f 0f 0f 0f 0f  |................|
++  000001d0  0f 0f 0f 0f 0f 0f 0f 0f  0f 0f 0f 0f 0f 0f 0f 0f  |................|
++  *
++  00000200  0f 0f 0f 0f f5 5b ff ff  0f 0f 0f 0f 0f 0f 0f 0f  |.....[..........|
++  00000210  0f 0f 0f 0f 0f 0f 0f 0f  0f 0f 0f 0f 0f 0f 0f 0f  |................|
++  *
++  000002f0  0f 0f 0f 0f 0f 0f 0f 0f  0f 0f 0f 0f 0f 1f 0f 0f  |................|
++  00000300  0f 0f 0f 0f 0f 0f 0f 0f  0f 0f 0f 0f 0f 0f 0f 0f  |................|
++  *
++  000003c0  0f 0f 0f 0f 0f 0f 0f 0f  0f 0f 0f 0f ff 0f 0f 0f  |................|
++  000003d0  0f 0f 0f 0f 0f 0f 0f 0f  0f 0f 0f 0f 0f 0f 0f 0f  |................|
++  *
++  00000400  0f 0f 0f 0f 0f 0f 0f 0f  e9 74 c9 06 f5 5b ff ff  |.........t...[..|
++  00000410  0f 0f 0f 0f 0f 0f 0f 0f  0f 0f 0f 0f 0f 0f 0f 0f  |................|
++  *
++  000005d0  0f 0f 0f 0f ff 0f 0f 0f  0f 0f 0f 0f 0f 0f 0f 0f  |................|
++  000005e0  0f 0f 0f 0f 0f 0f 0f 0f  0f 0f 0f 0f 0f 0f 0f 0f  |................|
++  *
++  00000600  0f 0f 0f 0f 0f 0f 0f 0f  0f 0f 0f 0f c6 be 0f c3  |................|
++  00000610  e9 74 c9 06 f5 5b ff ff  0f 0f 0f 0f 0f 0f 0f 0f  |.t...[..........|
++  00000620  0f 0f 0f 0f 0f 0f 0f 0f  0f 0f 0f 0f 0f 0f 0f 0f  |................|
++  *
++  00000770  0f 0f 0f 0f 8f 0f 0f 0f  0f 0f 0f 0f 0f 0f 0f 0f  |................|
++  00000780  0f 0f 0f 0f 0f 0f 0f 0f  0f 0f 0f 0f 0f 0f 0f 0f  |................|
++  *
++  00000800
++  #
++
++Doing the same by using the downstream kernel results in different output:
++
++  # hexdump -C -n 2048 /dev/mtd0
++  00000000  0f 0f 0f 0f 0f 0f 0f 0f  0f 0f 0f 0f 0f 0f 0f 0f  |................|
++  *
++  00000800
++  #
++
++This patch adds some sanity checks to the code to prevent using the driver
++with unsupported ECC step/strength configurations. After the change, probing
++of the driver fails in such cases:
++
++  [    0.655038] spi-nand spi0.0: GigaDevice SPI NAND was found.
++  [    0.659159] spi-nand spi0.0: 256 MiB, block size: 128 KiB, page size: 2048, OOB size: 128
++  [    0.669138] qcom_snand 79b0000.spi: only 4 bits ECC strength is supported
++  [    0.677476] nand: No suitable ECC configuration
++  [    0.689909] spi-nand spi0.0: probe with driver spi-nand failed with error -95
++
++This helps to avoid the aforementioned hassles until support for 8 bit ECC
++strength gets implemented.
++
++Fixes: 7304d1909080 ("spi: spi-qpic: add driver for QCOM SPI NAND flash Interface")
++Signed-off-by: Gabor Juhos <j4g8y7@gmail.com>
++Link: https://patch.msgid.link/20250501-qpic-snand-validate-ecc-v1-1-532776581a66@gmail.com
++Signed-off-by: Mark Brown <broonie@kernel.org>
++---
++ drivers/spi/spi-qpic-snand.c | 42 +++++++++++++++++++++++++++++++-----
++ 1 file changed, 37 insertions(+), 5 deletions(-)
++
++--- a/drivers/spi/spi-qpic-snand.c
+++++ b/drivers/spi/spi-qpic-snand.c
++@@ -249,9 +249,11 @@ static const struct mtd_ooblayout_ops qc
++ static int qcom_spi_ecc_init_ctx_pipelined(struct nand_device *nand)
++ {
++ 	struct qcom_nand_controller *snandc = nand_to_qcom_snand(nand);
+++	struct nand_ecc_props *reqs = &nand->ecc.requirements;
+++	struct nand_ecc_props *user = &nand->ecc.user_conf;
++ 	struct nand_ecc_props *conf = &nand->ecc.ctx.conf;
++ 	struct mtd_info *mtd = nanddev_to_mtd(nand);
++-	int cwperpage, bad_block_byte;
+++	int cwperpage, bad_block_byte, ret;
++ 	struct qpic_ecc *ecc_cfg;
++ 
++ 	cwperpage = mtd->writesize / NANDC_STEP_SIZE;
++@@ -260,11 +262,39 @@ static int qcom_spi_ecc_init_ctx_pipelin
++ 	ecc_cfg = kzalloc(sizeof(*ecc_cfg), GFP_KERNEL);
++ 	if (!ecc_cfg)
++ 		return -ENOMEM;
+++
+++	if (user->step_size && user->strength) {
+++		ecc_cfg->step_size = user->step_size;
+++		ecc_cfg->strength = user->strength;
+++	} else if (reqs->step_size && reqs->strength) {
+++		ecc_cfg->step_size = reqs->step_size;
+++		ecc_cfg->strength = reqs->strength;
+++	} else {
+++		/* use defaults */
+++		ecc_cfg->step_size = NANDC_STEP_SIZE;
+++		ecc_cfg->strength = 4;
+++	}
+++
+++	if (ecc_cfg->step_size != NANDC_STEP_SIZE) {
+++		dev_err(snandc->dev,
+++			"only %u bytes ECC step size is supported\n",
+++			NANDC_STEP_SIZE);
+++		ret = -EOPNOTSUPP;
+++		goto err_free_ecc_cfg;
+++	}
+++
+++	if (ecc_cfg->strength != 4) {
+++		dev_err(snandc->dev,
+++			"only 4 bits ECC strength is supported\n");
+++		ret = -EOPNOTSUPP;
+++		goto err_free_ecc_cfg;
+++	}
+++
++ 	snandc->qspi->oob_buf = kmalloc(mtd->writesize + mtd->oobsize,
++ 					GFP_KERNEL);
++ 	if (!snandc->qspi->oob_buf) {
++-		kfree(ecc_cfg);
++-		return -ENOMEM;
+++		ret = -ENOMEM;
+++		goto err_free_ecc_cfg;
++ 	}
++ 
++ 	memset(snandc->qspi->oob_buf, 0xff, mtd->writesize + mtd->oobsize);
++@@ -279,8 +309,6 @@ static int qcom_spi_ecc_init_ctx_pipelin
++ 	ecc_cfg->bytes = ecc_cfg->ecc_bytes_hw + ecc_cfg->spare_bytes + ecc_cfg->bbm_size;
++ 
++ 	ecc_cfg->steps = 4;
++-	ecc_cfg->strength = 4;
++-	ecc_cfg->step_size = 512;
++ 	ecc_cfg->cw_data = 516;
++ 	ecc_cfg->cw_size = ecc_cfg->cw_data + ecc_cfg->bytes;
++ 	bad_block_byte = mtd->writesize - ecc_cfg->cw_size * (cwperpage - 1) + 1;
++@@ -338,6 +366,10 @@ static int qcom_spi_ecc_init_ctx_pipelin
++ 		ecc_cfg->strength, ecc_cfg->step_size);
++ 
++ 	return 0;
+++
+++err_free_ecc_cfg:
+++	kfree(ecc_cfg);
+++	return ret;
++ }
++ 
++ static void qcom_spi_ecc_cleanup_ctx_pipelined(struct nand_device *nand)
+diff --git a/target/linux/qualcommax/patches-6.6/0413-v6.16-spi-spi-qpic-snand-use-CW_PER_PAGE_MASK-bitmask.patch b/target/linux/qualcommax/patches-6.6/0413-v6.16-spi-spi-qpic-snand-use-CW_PER_PAGE_MASK-bitmask.patch
+new file mode 100644
+index 0000000000..10c1651b3b
+--- /dev/null
++++ b/target/linux/qualcommax/patches-6.6/0413-v6.16-spi-spi-qpic-snand-use-CW_PER_PAGE_MASK-bitmask.patch
+@@ -0,0 +1,113 @@
++From 2abf107dcd797c60c86e9f17319cd1658862f6b2 Mon Sep 17 00:00:00 2001
++From: Gabor Juhos <j4g8y7@gmail.com>
++Date: Thu, 15 May 2025 20:58:05 +0200
++Subject: spi: spi-qpic-snand: use CW_PER_PAGE_MASK bitmask
++
++Change the code to use the already defined CW_PER_PAGE_MASK
++bitmask along with the FIELD_PREP() macro instead of using
++magic values.
++
++This makes the code more readable. It also syncs the affected
++codes with their counterparts in the 'qcom_nandc' driver, so it
++makes it easier to spot the differences between the two
++implementations.
++
++No functional changes intended.
++
++Signed-off-by: Gabor Juhos <j4g8y7@gmail.com>
++Reviewed-by: Md Sadre Alam <quic_mdalam@quicinc.com>
++Link: https://patch.msgid.link/20250515-qpic-snand-use-bitmasks-v1-1-11729aeae73b@gmail.com
++Signed-off-by: Mark Brown <broonie@kernel.org>
++---
++ drivers/spi/spi-qpic-snand.c | 31 ++++++++++++++++---------------
++ 1 file changed, 16 insertions(+), 15 deletions(-)
++
++--- a/drivers/spi/spi-qpic-snand.c
+++++ b/drivers/spi/spi-qpic-snand.c
++@@ -483,7 +483,8 @@ static int qcom_spi_block_erase(struct q
++ 	snandc->regs->cmd = snandc->qspi->cmd;
++ 	snandc->regs->addr0 = snandc->qspi->addr1;
++ 	snandc->regs->addr1 = snandc->qspi->addr2;
++-	snandc->regs->cfg0 = cpu_to_le32(ecc_cfg->cfg0_raw & ~(7 << CW_PER_PAGE));
+++	snandc->regs->cfg0 = cpu_to_le32((ecc_cfg->cfg0_raw & ~CW_PER_PAGE_MASK) |
+++					 FIELD_PREP(CW_PER_PAGE_MASK, 0));
++ 	snandc->regs->cfg1 = cpu_to_le32(ecc_cfg->cfg1_raw);
++ 	snandc->regs->exec = cpu_to_le32(1);
++ 
++@@ -544,8 +545,8 @@ static int qcom_spi_read_last_cw(struct
++ 	snandc->regs->addr0 = (snandc->qspi->addr1 | cpu_to_le32(col));
++ 	snandc->regs->addr1 = snandc->qspi->addr2;
++ 
++-	cfg0 = (ecc_cfg->cfg0_raw & ~(7U << CW_PER_PAGE)) |
++-		0 << CW_PER_PAGE;
+++	cfg0 = (ecc_cfg->cfg0_raw & ~CW_PER_PAGE_MASK) |
+++	       FIELD_PREP(CW_PER_PAGE_MASK, 0);
++ 	cfg1 = ecc_cfg->cfg1_raw;
++ 	ecc_bch_cfg = ECC_CFG_ECC_DISABLE;
++ 
++@@ -687,8 +688,8 @@ static int qcom_spi_read_cw_raw(struct q
++ 	qcom_clear_bam_transaction(snandc);
++ 	raw_cw = num_cw - 1;
++ 
++-	cfg0 = (ecc_cfg->cfg0_raw & ~(7U << CW_PER_PAGE)) |
++-				0 << CW_PER_PAGE;
+++	cfg0 = (ecc_cfg->cfg0_raw & ~CW_PER_PAGE_MASK) |
+++	       FIELD_PREP(CW_PER_PAGE_MASK, 0);
++ 	cfg1 = ecc_cfg->cfg1_raw;
++ 	ecc_bch_cfg = ECC_CFG_ECC_DISABLE;
++ 
++@@ -808,8 +809,8 @@ static int qcom_spi_read_page_ecc(struct
++ 	snandc->buf_start = 0;
++ 	qcom_clear_read_regs(snandc);
++ 
++-	cfg0 = (ecc_cfg->cfg0 & ~(7U << CW_PER_PAGE)) |
++-				(num_cw - 1) << CW_PER_PAGE;
+++	cfg0 = (ecc_cfg->cfg0 & ~CW_PER_PAGE_MASK) |
+++	       FIELD_PREP(CW_PER_PAGE_MASK, num_cw - 1);
++ 	cfg1 = ecc_cfg->cfg1;
++ 	ecc_bch_cfg = ecc_cfg->ecc_bch_cfg;
++ 
++@@ -904,8 +905,8 @@ static int qcom_spi_read_page_oob(struct
++ 	qcom_clear_read_regs(snandc);
++ 	qcom_clear_bam_transaction(snandc);
++ 
++-	cfg0 = (ecc_cfg->cfg0 & ~(7U << CW_PER_PAGE)) |
++-				(num_cw - 1) << CW_PER_PAGE;
+++	cfg0 = (ecc_cfg->cfg0 & ~CW_PER_PAGE_MASK) |
+++	       FIELD_PREP(CW_PER_PAGE_MASK, num_cw - 1);
++ 	cfg1 = ecc_cfg->cfg1;
++ 	ecc_bch_cfg = ecc_cfg->ecc_bch_cfg;
++ 
++@@ -1015,8 +1016,8 @@ static int qcom_spi_program_raw(struct q
++ 	int num_cw = snandc->qspi->num_cw;
++ 	u32 cfg0, cfg1, ecc_bch_cfg;
++ 
++-	cfg0 = (ecc_cfg->cfg0_raw & ~(7U << CW_PER_PAGE)) |
++-			(num_cw - 1) << CW_PER_PAGE;
+++	cfg0 = (ecc_cfg->cfg0_raw & ~CW_PER_PAGE_MASK) |
+++	       FIELD_PREP(CW_PER_PAGE_MASK, num_cw - 1);
++ 	cfg1 = ecc_cfg->cfg1_raw;
++ 	ecc_bch_cfg = ECC_CFG_ECC_DISABLE;
++ 
++@@ -1098,8 +1099,8 @@ static int qcom_spi_program_ecc(struct q
++ 	int num_cw = snandc->qspi->num_cw;
++ 	u32 cfg0, cfg1, ecc_bch_cfg, ecc_buf_cfg;
++ 
++-	cfg0 = (ecc_cfg->cfg0 & ~(7U << CW_PER_PAGE)) |
++-				(num_cw - 1) << CW_PER_PAGE;
+++	cfg0 = (ecc_cfg->cfg0 & ~CW_PER_PAGE_MASK) |
+++	       FIELD_PREP(CW_PER_PAGE_MASK, num_cw - 1);
++ 	cfg1 = ecc_cfg->cfg1;
++ 	ecc_bch_cfg = ecc_cfg->ecc_bch_cfg;
++ 	ecc_buf_cfg = ecc_cfg->ecc_buf_cfg;
++@@ -1175,8 +1176,8 @@ static int qcom_spi_program_oob(struct q
++ 	int num_cw = snandc->qspi->num_cw;
++ 	u32 cfg0, cfg1, ecc_bch_cfg, ecc_buf_cfg;
++ 
++-	cfg0 = (ecc_cfg->cfg0 & ~(7U << CW_PER_PAGE)) |
++-				(num_cw - 1) << CW_PER_PAGE;
+++	cfg0 = (ecc_cfg->cfg0 & ~CW_PER_PAGE_MASK) |
+++	       FIELD_PREP(CW_PER_PAGE_MASK, num_cw - 1);
++ 	cfg1 = ecc_cfg->cfg1;
++ 	ecc_bch_cfg = ecc_cfg->ecc_bch_cfg;
++ 	ecc_buf_cfg = ecc_cfg->ecc_buf_cfg;
+diff --git a/target/linux/qualcommax/patches-6.6/0414-v6.16-spi-spi-qpic-snand-reallocate-BAM-transactions.patch b/target/linux/qualcommax/patches-6.6/0414-v6.16-spi-spi-qpic-snand-reallocate-BAM-transactions.patch
+new file mode 100644
+index 0000000000..6d61016556
+--- /dev/null
++++ b/target/linux/qualcommax/patches-6.6/0414-v6.16-spi-spi-qpic-snand-reallocate-BAM-transactions.patch
+@@ -0,0 +1,81 @@
++From d85d0380292a7e618915069c3579ae23c7c80339 Mon Sep 17 00:00:00 2001
++From: Gabor Juhos <j4g8y7@gmail.com>
++Date: Wed, 18 Jun 2025 22:22:49 +0200
++Subject: spi: spi-qpic-snand: reallocate BAM transactions
++
++Using the mtd_nandbiterrs module for testing the driver occasionally
++results in weird things like below.
++
++1. swiotlb mapping fails with the following message:
++
++  [   85.926216] qcom_snand 79b0000.spi: swiotlb buffer is full (sz: 4294967294 bytes), total 512 (slots), used 0 (slots)
++  [   85.932937] qcom_snand 79b0000.spi: failure in mapping desc
++  [   87.999314] qcom_snand 79b0000.spi: failure to write raw page
++  [   87.999352] mtd_nandbiterrs: error: write_oob failed (-110)
++
++  Rebooting the board after this causes a panic due to a NULL pointer
++  dereference.
++
++2. If the swiotlb mapping does not fail, rebooting the board may result
++   in a different panic due to a bad spinlock magic:
++
++  [  256.104459] BUG: spinlock bad magic on CPU#3, procd/2241
++  [  256.104488] Unable to handle kernel paging request at virtual address ffffffff0000049b
++  ...
++
++Investigating the issue revealed that these symptoms are results of
++memory corruption which is caused by out of bounds access within the
++driver.
++
++The driver uses a dynamically allocated structure for BAM transactions,
++which structure must have enough space for all possible variations of
++different flash operations initiated by the driver. The required space
++heavily depends on the actual number of 'codewords' which is calculated
++from the pagesize of the actual NAND chip.
++
++Although the qcom_nandc_alloc() function allocates memory for the BAM
++transactions during probe, but since the actual number of 'codewords'
++is not yet know the allocation is done for one 'codeword' only.
++
++Because of this, whenever the driver does a flash operation, and the
++number of the required transactions exceeds the size of the allocated
++arrays the driver accesses memory out of the allocated range.
++
++To avoid this, change the code to free the initially allocated BAM
++transactions memory, and allocate a new one once the actual number of
++'codewords' required for a given NAND chip is known.
++
++Fixes: 7304d1909080 ("spi: spi-qpic: add driver for QCOM SPI NAND flash Interface")
++Reviewed-by: Md Sadre Alam <quic_mdalam@quicinc.com>
++Signed-off-by: Gabor Juhos <j4g8y7@gmail.com>
++Link: https://patch.msgid.link/20250618-qpic-snand-avoid-mem-corruption-v3-1-319c71296cda@gmail.com
++Signed-off-by: Mark Brown <broonie@kernel.org>
++---
++ drivers/spi/spi-qpic-snand.c | 16 ++++++++++++++++
++ 1 file changed, 16 insertions(+)
++
++--- a/drivers/spi/spi-qpic-snand.c
+++++ b/drivers/spi/spi-qpic-snand.c
++@@ -315,6 +315,22 @@ static int qcom_spi_ecc_init_ctx_pipelin
++ 
++ 	mtd_set_ooblayout(mtd, &qcom_spi_ooblayout);
++ 
+++	/*
+++	 * Free the temporary BAM transaction allocated initially by
+++	 * qcom_nandc_alloc(), and allocate a new one based on the
+++	 * updated max_cwperpage value.
+++	 */
+++	qcom_free_bam_transaction(snandc);
+++
+++	snandc->max_cwperpage = cwperpage;
+++
+++	snandc->bam_txn = qcom_alloc_bam_transaction(snandc);
+++	if (!snandc->bam_txn) {
+++		dev_err(snandc->dev, "failed to allocate BAM transaction\n");
+++		ret = -ENOMEM;
+++		goto err_free_ecc_cfg;
+++	}
+++
++ 	ecc_cfg->cfg0 = FIELD_PREP(CW_PER_PAGE_MASK, (cwperpage - 1)) |
++ 			FIELD_PREP(UD_SIZE_BYTES_MASK, ecc_cfg->cw_data) |
++ 			FIELD_PREP(DISABLE_STATUS_AFTER_WRITE, 1) |
+diff --git a/target/linux/qualcommax/patches-6.6/0415-v6.16-spi-spi-qpic-snand-don-t-hardcode-ECC-steps.patch b/target/linux/qualcommax/patches-6.6/0415-v6.16-spi-spi-qpic-snand-don-t-hardcode-ECC-steps.patch
+new file mode 100644
+index 0000000000..eab7b792aa
+--- /dev/null
++++ b/target/linux/qualcommax/patches-6.6/0415-v6.16-spi-spi-qpic-snand-don-t-hardcode-ECC-steps.patch
+@@ -0,0 +1,31 @@
++From f820034864dd463cdcd2bebe7940f2eca0eb4223 Mon Sep 17 00:00:00 2001
++From: Gabor Juhos <j4g8y7@gmail.com>
++Date: Wed, 23 Jul 2025 10:06:43 +0200
++Subject: spi: spi-qpic-snand: don't hardcode ECC steps
++
++NAND devices with different page sizes requires different number
++of ECC steps, yet the qcom_spi_ecc_init_ctx_pipelined() function
++sets 4 steps in 'ecc_cfg' unconditionally.
++
++The correct number of the steps is calculated earlier in the
++function already, so use that instead of the hardcoded value.
++
++Fixes: 7304d1909080 ("spi: spi-qpic: add driver for QCOM SPI NAND flash Interface")
++Signed-off-by: Gabor Juhos <j4g8y7@gmail.com>
++Link: https://patch.msgid.link/20250723-qpic-snand-fix-steps-v1-1-d800695dde4c@gmail.com
++Signed-off-by: Mark Brown <broonie@kernel.org>
++---
++ drivers/spi/spi-qpic-snand.c | 2 +-
++ 1 file changed, 1 insertion(+), 1 deletion(-)
++
++--- a/drivers/spi/spi-qpic-snand.c
+++++ b/drivers/spi/spi-qpic-snand.c
++@@ -308,7 +308,7 @@ static int qcom_spi_ecc_init_ctx_pipelin
++ 	ecc_cfg->bch_enabled = true;
++ 	ecc_cfg->bytes = ecc_cfg->ecc_bytes_hw + ecc_cfg->spare_bytes + ecc_cfg->bbm_size;
++ 
++-	ecc_cfg->steps = 4;
+++	ecc_cfg->steps = cwperpage;
++ 	ecc_cfg->cw_data = 516;
++ 	ecc_cfg->cw_size = ecc_cfg->cw_data + ecc_cfg->bytes;
++ 	bad_block_byte = mtd->writesize - ecc_cfg->cw_size * (cwperpage - 1) + 1;
+diff --git a/target/linux/qualcommax/patches-6.6/0416-v6.17-mtd-nand-qpic-common-add-defines-for-ECC_MODE-values.patch b/target/linux/qualcommax/patches-6.6/0416-v6.17-mtd-nand-qpic-common-add-defines-for-ECC_MODE-values.patch
+new file mode 100644
+index 0000000000..40685a3c5d
+--- /dev/null
++++ b/target/linux/qualcommax/patches-6.6/0416-v6.17-mtd-nand-qpic-common-add-defines-for-ECC_MODE-values.patch
+@@ -0,0 +1,47 @@
++From 0dc7e656ddd54c3267b7cc18c1ac8ec1297ed02f Mon Sep 17 00:00:00 2001
++From: Gabor Juhos <j4g8y7@gmail.com>
++Date: Wed, 2 Jul 2025 14:35:23 +0200
++Subject: mtd: nand: qpic-common: add defines for ECC_MODE values
++
++Add defines for the values of the ECC_MODE field of the NAND_DEV0_ECC_CFG
++register and change both the 'qcom-nandc' and 'spi-qpic-snand' drivers to
++use those instead of magic numbers.
++
++No functional changes. This is in preparation for adding 8 bit ECC strength
++support for the 'spi-qpic-snand' driver.
++
++Reviewed-by: Md Sadre Alam <quic_mdalam@quicinc.com>
++Signed-off-by: Gabor Juhos <j4g8y7@gmail.com>
++Acked-by: Miquel Raynal <miquel.raynal@bootlin.com>
++Link: https://patch.msgid.link/20250702-qpic-snand-8bit-ecc-v2-1-ae2c17a30bb7@gmail.com
++Signed-off-by: Mark Brown <broonie@kernel.org>
++
++[Neanderfunk: qcom_nandc.c-Teil weggelassen, der raw-NAND-Treiber bleibt unverändert]
++---
++ drivers/mtd/nand/raw/qcom_nandc.c    | 6 +++---
++ drivers/spi/spi-qpic-snand.c         | 2 +-
++ include/linux/mtd/nand-qpic-common.h | 2 ++
++ 3 files changed, 6 insertions(+), 4 deletions(-)
++
++--- a/drivers/spi/spi-qpic-snand.c
+++++ b/drivers/spi/spi-qpic-snand.c
++@@ -365,7 +365,7 @@ static int qcom_spi_ecc_init_ctx_pipelin
++ 			       FIELD_PREP(ECC_SW_RESET, 0) |
++ 			       FIELD_PREP(ECC_NUM_DATA_BYTES_MASK, ecc_cfg->cw_data) |
++ 			       FIELD_PREP(ECC_FORCE_CLK_OPEN, 1) |
++-			       FIELD_PREP(ECC_MODE_MASK, 0) |
+++			       FIELD_PREP(ECC_MODE_MASK, ECC_MODE_4BIT) |
++ 			       FIELD_PREP(ECC_PARITY_SIZE_BYTES_BCH_MASK, ecc_cfg->ecc_bytes_hw);
++ 
++ 	ecc_cfg->ecc_buf_cfg = 0x203 << NUM_STEPS;
++--- a/include/linux/mtd/nand-qpic-common.h
+++++ b/include/linux/mtd/nand-qpic-common.h
++@@ -101,6 +101,8 @@
++ #define	ECC_SW_RESET			BIT(1)
++ #define	ECC_MODE			4
++ #define	ECC_MODE_MASK			GENMASK(5, 4)
+++#define	ECC_MODE_4BIT			0
+++#define	ECC_MODE_8BIT			1
++ #define	ECC_PARITY_SIZE_BYTES_BCH	8
++ #define	ECC_PARITY_SIZE_BYTES_BCH_MASK	GENMASK(12, 8)
++ #define	ECC_NUM_DATA_BYTES		16
+diff --git a/target/linux/qualcommax/patches-6.6/0417-v6.17-spi-spi-qpic-snand-add-support-for-8-bits-ECC-strength.patch b/target/linux/qualcommax/patches-6.6/0417-v6.17-spi-spi-qpic-snand-add-support-for-8-bits-ECC-strength.patch
+new file mode 100644
+index 0000000000..4eff84f419
+--- /dev/null
++++ b/target/linux/qualcommax/patches-6.6/0417-v6.17-spi-spi-qpic-snand-add-support-for-8-bits-ECC-strength.patch
+@@ -0,0 +1,66 @@
++From 913bf8d50cbd144c87e9660b591781179182ff59 Mon Sep 17 00:00:00 2001
++From: Gabor Juhos <j4g8y7@gmail.com>
++Date: Wed, 2 Jul 2025 14:35:24 +0200
++Subject: spi: spi-qpic-snand: add support for 8 bits ECC strength
++
++Even though the hardware supports 8 bits ECC strength, but that is not
++handled in the driver yet. This change adds the missing bits in order
++to allow using the driver with chips which require 8 bits ECC strength.
++
++No functional changes intended with regard to the existing 4 bits ECC
++strength support.
++
++Tested on an IPQ9574 platform using a GigaDevice GD5F2GM7REYIG chip.
++
++Signed-off-by: Gabor Juhos <j4g8y7@gmail.com>
++Link: https://patch.msgid.link/20250702-qpic-snand-8bit-ecc-v2-2-ae2c17a30bb7@gmail.com
++Signed-off-by: Mark Brown <broonie@kernel.org>
++---
++ drivers/spi/spi-qpic-snand.c | 21 ++++++++++++++++-----
++ 1 file changed, 16 insertions(+), 5 deletions(-)
++
++--- a/drivers/spi/spi-qpic-snand.c
+++++ b/drivers/spi/spi-qpic-snand.c
++@@ -283,9 +283,22 @@ static int qcom_spi_ecc_init_ctx_pipelin
++ 		goto err_free_ecc_cfg;
++ 	}
++ 
++-	if (ecc_cfg->strength != 4) {
+++	switch (ecc_cfg->strength) {
+++	case 4:
+++		ecc_cfg->ecc_mode = ECC_MODE_4BIT;
+++		ecc_cfg->ecc_bytes_hw = 7;
+++		ecc_cfg->spare_bytes = 4;
+++		break;
+++
+++	case 8:
+++		ecc_cfg->ecc_mode = ECC_MODE_8BIT;
+++		ecc_cfg->ecc_bytes_hw = 13;
+++		ecc_cfg->spare_bytes = 2;
+++		break;
+++
+++	default:
++ 		dev_err(snandc->dev,
++-			"only 4 bits ECC strength is supported\n");
+++			"only 4 or 8 bits ECC strength is supported\n");
++ 		ret = -EOPNOTSUPP;
++ 		goto err_free_ecc_cfg;
++ 	}
++@@ -302,8 +315,6 @@ static int qcom_spi_ecc_init_ctx_pipelin
++ 	nand->ecc.ctx.priv = ecc_cfg;
++ 	snandc->qspi->mtd = mtd;
++ 
++-	ecc_cfg->ecc_bytes_hw = 7;
++-	ecc_cfg->spare_bytes = 4;
++ 	ecc_cfg->bbm_size = 1;
++ 	ecc_cfg->bch_enabled = true;
++ 	ecc_cfg->bytes = ecc_cfg->ecc_bytes_hw + ecc_cfg->spare_bytes + ecc_cfg->bbm_size;
++@@ -365,7 +376,7 @@ static int qcom_spi_ecc_init_ctx_pipelin
++ 			       FIELD_PREP(ECC_SW_RESET, 0) |
++ 			       FIELD_PREP(ECC_NUM_DATA_BYTES_MASK, ecc_cfg->cw_data) |
++ 			       FIELD_PREP(ECC_FORCE_CLK_OPEN, 1) |
++-			       FIELD_PREP(ECC_MODE_MASK, ECC_MODE_4BIT) |
+++			       FIELD_PREP(ECC_MODE_MASK, ecc_cfg->ecc_mode) |
++ 			       FIELD_PREP(ECC_PARITY_SIZE_BYTES_BCH_MASK, ecc_cfg->ecc_bytes_hw);
++ 
++ 	ecc_cfg->ecc_buf_cfg = 0x203 << NUM_STEPS;
+diff --git a/target/linux/qualcommax/patches-6.6/0418-v6.17-spi-spi-qpic-snand-use-correct-CW_PER_PAGE-value-for.patch b/target/linux/qualcommax/patches-6.6/0418-v6.17-spi-spi-qpic-snand-use-correct-CW_PER_PAGE-value-for.patch
+new file mode 100644
+index 0000000000..b67645e07c
+--- /dev/null
++++ b/target/linux/qualcommax/patches-6.6/0418-v6.17-spi-spi-qpic-snand-use-correct-CW_PER_PAGE-value-for.patch
+@@ -0,0 +1,56 @@
++From 6bc829220b33da8522572cc50fdf5067c51d3bf3 Mon Sep 17 00:00:00 2001
++From: Gabor Juhos <j4g8y7@gmail.com>
++Date: Fri, 1 Aug 2025 09:58:35 +0200
++Subject: spi: spi-qpic-snand: use correct CW_PER_PAGE value for OOB write
++
++The qcom_spi_program_oob() function uses only the last codeword to write
++the OOB data into the flash, but it sets the CW_PER_PAGE field in the
++CFG0 register as it would use all codewords.
++
++It seems that this confuses the hardware somehow, and any access to the
++flash fails with a timeout error after the function is called. The problem
++can be easily reproduced with the following commands:
++
++    # dd if=/dev/zero bs=2176 count=1 > /tmp/test.bin
++    1+0 records in
++    1+0 records out
++    # flash_erase /dev/mtd4 0 0
++    Erasing 128 Kibyte @ 0 -- 100 % complete
++    # nandwrite -O /dev/mtd4 /tmp/test.bin
++    Writing data to block 0 at offset 0x0
++    # nanddump -o /dev/mtd4 >/dev/null
++    ECC failed: 0
++    ECC corrected: 0
++    Number of bad blocks: 0
++    Number of bbt blocks: 0
++    Block size 131072, page size 2048, OOB size 128
++    Dumping data starting at 0x00000000 and ending at 0x00020000...
++    [   33.197605] qcom_snand 79b0000.spi: failure to read oob
++    libmtd: error!: MEMREADOOB64 ioctl failed for mtd4, offset 0 (eraseblock 0)
++            error 110 (Operation timed out)
++    [   35.277582] qcom_snand 79b0000.spi: failure in submitting cmd descriptor
++    libmtd: error!: cannot read 2048 bytes from mtd4 (eraseblock 0, offset 2048)
++            error 110 (Operation timed out)
++    nanddump: error!: mtd_read
++
++Change the code to use the correct CW_PER_PAGE value to avoid this.
++
++Fixes: 7304d1909080 ("spi: spi-qpic: add driver for QCOM SPI NAND flash Interface")
++Signed-off-by: Gabor Juhos <j4g8y7@gmail.com>
++Link: https://patch.msgid.link/20250801-qpic-snand-oob-cwpp-fix-v1-1-f5a41b86af2e@gmail.com
++Signed-off-by: Mark Brown <broonie@kernel.org>
++---
++ drivers/spi/spi-qpic-snand.c | 2 +-
++ 1 file changed, 1 insertion(+), 1 deletion(-)
++
++--- a/drivers/spi/spi-qpic-snand.c
+++++ b/drivers/spi/spi-qpic-snand.c
++@@ -1204,7 +1204,7 @@ static int qcom_spi_program_oob(struct q
++ 	u32 cfg0, cfg1, ecc_bch_cfg, ecc_buf_cfg;
++ 
++ 	cfg0 = (ecc_cfg->cfg0 & ~CW_PER_PAGE_MASK) |
++-	       FIELD_PREP(CW_PER_PAGE_MASK, num_cw - 1);
+++	       FIELD_PREP(CW_PER_PAGE_MASK, 0);
++ 	cfg1 = ecc_cfg->cfg1;
++ 	ecc_bch_cfg = ecc_cfg->ecc_bch_cfg;
++ 	ecc_buf_cfg = ecc_cfg->ecc_buf_cfg;
+diff --git a/target/linux/qualcommax/patches-6.6/0419-v6.17-spi-spi-qpic-snand-fix-calculating-of-ECC-OOB-region.patch b/target/linux/qualcommax/patches-6.6/0419-v6.17-spi-spi-qpic-snand-fix-calculating-of-ECC-OOB-region.patch
+new file mode 100644
+index 0000000000..35d5d30232
+--- /dev/null
++++ b/target/linux/qualcommax/patches-6.6/0419-v6.17-spi-spi-qpic-snand-fix-calculating-of-ECC-OOB-region.patch
+@@ -0,0 +1,69 @@
++From 13d0fe84a214658254a7412b2b46ec1507dc51f0 Mon Sep 17 00:00:00 2001
++From: Gabor Juhos <j4g8y7@gmail.com>
++Date: Tue, 5 Aug 2025 18:05:42 +0200
++Subject: spi: spi-qpic-snand: fix calculating of ECC OOB regions' properties
++
++The OOB layout used by the driver has two distinct regions which contains
++hardware specific ECC data, yet the qcom_spi_ooblayout_ecc() function sets
++the same offset and length values for both regions which is clearly wrong.
++
++Change the code to calculate the correct values for both regions.
++
++For reference, the following table shows the computed offset and length
++values for various OOB size/ECC strength configurations:
++
++                              +-----------------+-----------------+
++                              |before the change| after the change|
++  +-------+----------+--------+--------+--------+--------+--------+
++  |  OOB  |   ECC    | region | region | region | region | region |
++  |  size | strength | index  | offset | length | offset | length |
++  +-------+----------+--------+--------+--------+--------+--------+
++  |  128  |     8    |    0   |   113  |   15   |    0   |   49   |
++  |       |          |    1   |   113  |   15   |   65   |   63   |
++  +-------+----------+--------+--------+--------+--------+--------+
++  |  128  |     4    |    0   |   117  |   11   |    0   |   37   |
++  |       |          |    1   |   117  |   11   |   53   |   75   |
++  +-------+----------+--------+--------+--------+--------+--------+
++  |   64  |     4    |    0   |    53  |   11   |    0   |   37   |
++  |       |          |    1   |    53  |   11   |   53   |   11   |
++  +-------+----------+--------+--------+--------+--------+--------+
++
++Fixes: 7304d1909080 ("spi: spi-qpic: add driver for QCOM SPI NAND flash Interface")
++Signed-off-by: Gabor Juhos <j4g8y7@gmail.com>
++Reviewed-by: Konrad Dybcio <konrad.dybcio@oss.qualcomm.com>
++Link: https://patch.msgid.link/20250805-qpic-snand-oob-ecc-fix-v2-1-e6f811c70d6f@gmail.com
++Signed-off-by: Mark Brown <broonie@kernel.org>
++---
++ drivers/spi/spi-qpic-snand.c | 20 ++++++++++++++------
++ 1 file changed, 14 insertions(+), 6 deletions(-)
++
++--- a/drivers/spi/spi-qpic-snand.c
+++++ b/drivers/spi/spi-qpic-snand.c
++@@ -216,13 +216,21 @@ static int qcom_spi_ooblayout_ecc(struct
++ 	struct qcom_nand_controller *snandc = nand_to_qcom_snand(nand);
++ 	struct qpic_ecc *qecc = snandc->qspi->ecc;
++ 
++-	if (section > 1)
++-		return -ERANGE;
+++	switch (section) {
+++	case 0:
+++		oobregion->offset = 0;
+++		oobregion->length = qecc->bytes * (qecc->steps - 1) +
+++				    qecc->bbm_size;
+++		return 0;
+++	case 1:
+++		oobregion->offset = qecc->bytes * (qecc->steps - 1) +
+++				    qecc->bbm_size +
+++				    qecc->steps * 4;
+++		oobregion->length = mtd->oobsize - oobregion->offset;
+++		return 0;
+++	}
++ 
++-	oobregion->length = qecc->ecc_bytes_hw + qecc->spare_bytes;
++-	oobregion->offset = mtd->oobsize - oobregion->length;
++-
++-	return 0;
+++	return -ERANGE;
++ }
++ 
++ static int qcom_spi_ooblayout_free(struct mtd_info *mtd, int section,
+diff --git a/target/linux/qualcommax/patches-6.6/0420-v6.17-spi-spi-qpic-snand-unregister-ECC-engine-on-probe-er.patch b/target/linux/qualcommax/patches-6.6/0420-v6.17-spi-spi-qpic-snand-unregister-ECC-engine-on-probe-er.patch
+new file mode 100644
+index 0000000000..46184b53c5
+--- /dev/null
++++ b/target/linux/qualcommax/patches-6.6/0420-v6.17-spi-spi-qpic-snand-unregister-ECC-engine-on-probe-er.patch
+@@ -0,0 +1,48 @@
++From 1991a458528588ff34e98b6365362560d208710f Mon Sep 17 00:00:00 2001
++From: Gabor Juhos <j4g8y7@gmail.com>
++Date: Wed, 3 Sep 2025 13:56:24 +0200
++Subject: spi: spi-qpic-snand: unregister ECC engine on probe error and device
++ remove
++
++The on-host hardware ECC engine remains registered both when
++the spi_register_controller() function returns with an error
++and also on device removal.
++
++Change the qcom_spi_probe() function to unregister the engine
++on the error path, and add the missing unregistering call to
++qcom_spi_remove() to avoid possible use-after-free issues.
++
++Fixes: 7304d1909080 ("spi: spi-qpic: add driver for QCOM SPI NAND flash Interface")
++Signed-off-by: Gabor Juhos <j4g8y7@gmail.com>
++Message-ID: <20250903-qpic-snand-unregister-ecceng-v1-1-ef5387b0abdc@gmail.com>
++Signed-off-by: Mark Brown <broonie@kernel.org>
++---
++ drivers/spi/spi-qpic-snand.c | 6 ++++--
++ 1 file changed, 4 insertions(+), 2 deletions(-)
++
++--- a/drivers/spi/spi-qpic-snand.c
+++++ b/drivers/spi/spi-qpic-snand.c
++@@ -1632,11 +1632,13 @@ static int qcom_spi_probe(struct platfor
++ 	ret = spi_register_controller(ctlr);
++ 	if (ret) {
++ 		dev_err(&pdev->dev, "spi_register_controller failed.\n");
++-		goto err_spi_init;
+++		goto err_register_controller;
++ 	}
++ 
++ 	return 0;
++ 
+++err_register_controller:
+++	nand_ecc_unregister_on_host_hw_engine(&snandc->qspi->ecc_eng);
++ err_spi_init:
++ 	qcom_nandc_unalloc(snandc);
++ err_snand_alloc:
++@@ -1658,7 +1660,7 @@ static void qcom_spi_remove(struct platf
++ 	struct resource *res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
++ 
++ 	spi_unregister_controller(ctlr);
++-
+++	nand_ecc_unregister_on_host_hw_engine(&snandc->qspi->ecc_eng);
++ 	qcom_nandc_unalloc(snandc);
++ 
++ 	clk_disable_unprepare(snandc->aon_clk);
+-- 
+2.53.0
+
