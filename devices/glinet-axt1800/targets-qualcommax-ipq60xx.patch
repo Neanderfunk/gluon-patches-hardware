@@ -1,0 +1,35 @@
+--- a/docs/user/supported_devices.rst
++++ b/docs/user/supported_devices.rst
+@@ -466,6 +466,14 @@
+   - MR80X (v2)
+   - MR3000X (v2)
+ 
++qualcommax-ipq60xx
++------------------
++
++* GL.iNet
++
++  - GL-AX1800
++  - GL-AXT1800
++
+ qualcommax-ipq807x
+ ------------------
+ 
+--- /dev/null
++++ b/targets/qualcommax-ipq60xx
+@@ -0,0 +1,5 @@
++-- GL.iNet
++
++device('gl.inet-gl-ax1800', 'glinet_gl-ax1800')
++
++device('gl.inet-gl-axt1800', 'glinet_gl-axt1800')
+--- a/targets/targets.mk
++++ b/targets/targets.mk
+@@ -17,6 +17,7 @@
+ $(eval $(call GluonTarget,mpc85xx,p1010))
+ $(eval $(call GluonTarget,mpc85xx,p1020))
+ $(eval $(call GluonTarget,qualcommax,ipq50xx))
++$(eval $(call GluonTarget,qualcommax,ipq60xx))
+ $(eval $(call GluonTarget,qualcommax,ipq807x))
+ $(eval $(call GluonTarget,ramips,mt7620))
+ $(eval $(call GluonTarget,ramips,mt7621))

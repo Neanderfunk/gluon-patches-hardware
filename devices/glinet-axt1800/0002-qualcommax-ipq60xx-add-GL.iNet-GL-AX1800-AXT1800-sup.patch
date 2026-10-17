@@ -1,0 +1,755 @@
+From 88f66c145af6b9714a1c7570f4c93c325f978f69 Mon Sep 17 00:00:00 2001
+From: Chukun Pan <amadeus@jmu.edu.cn>
+Date: Wed, 20 Mar 2024 23:05:07 +0800
+Subject: [PATCH 2/2] qualcommax: ipq60xx: add GL.iNet GL-AX1800/AXT1800
+ support
+
+Specifications:
+  SoC:     Qualcomm IPQ6000
+  RAM:     512 MiB
+  Flash:   128 MiB NAND
+  ETH:     Qualcomm QCA8075
+  WLAN1:   2.4GHz 802.11b/g/n/ax 2x2
+  WLAN2:   5GHz 802.11a/n/ac/ax 2x2
+  Button:  Reset, Switch
+  USB:     1x 3.0
+  SD slot: 1 in GL-AXT1800
+
+Install via stock firmware:
+  Upload factory.bin in stock firmware's upgrade page,
+  do not preserve settings.
+
+Install via uboot web failsafe:
+  Push the reset button for 5 seconds, then use broswer
+  to access http://192.168.1.1, and upload factory.ubi.
+
+Afterwards upgrade can use sysupgrade image.
+
+Signed-off-by: Chukun Pan <amadeus@jmu.edu.cn>
+Link: https://github.com/openwrt/openwrt/pull/14950
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+
+(cherry picked from commit c3f2bb7afc72a6b6af99ff466bc22d9f123e36ab)
+[Neanderfunk: backport to 24.10: uboot-envtools config lives in package/boot/uboot-envtools
+and uses ubootenv_add_uci_config; the ath11k caldata hotplug script is
+named 11-ath11-caldata; Linksys MR7350, Qihoo 360V6 and TP-Link EAP610
+hunks dropped because these boards are not in 24.10.]
+---
+ .../uboot-envtools/files/qualcommax_ipq60xx   |   2 +
+ package/firmware/ipq-wifi/Makefile            |   4 +
+ .../arm64/boot/dts/qcom/ipq6000-gl-ax1800.dts |  70 ++++
+ .../boot/dts/qcom/ipq6000-gl-axt1800.dts      | 169 ++++++++++
+ .../arm64/boot/dts/qcom/ipq6000-glinet.dtsi   | 316 ++++++++++++++++++
+ target/linux/qualcommax/image/ipq60xx.mk      |  28 ++
+ .../ipq60xx/base-files/etc/board.d/02_network |   4 +-
+ .../etc/hotplug.d/firmware/11-ath11-caldata   |   8 +
+ .../base-files/lib/upgrade/platform.sh        |   2 +
+ 9 files changed, 602 insertions(+), 1 deletion(-)
+ create mode 100644 target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6000-gl-ax1800.dts
+ create mode 100644 target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6000-gl-axt1800.dts
+ create mode 100644 target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6000-glinet.dtsi
+
+diff --git a/package/boot/uboot-envtools/files/qualcommax_ipq60xx b/package/boot/uboot-envtools/files/qualcommax_ipq60xx
+index 853037b776..ea9e303378 100644
+--- a/package/boot/uboot-envtools/files/qualcommax_ipq60xx
++++ b/package/boot/uboot-envtools/files/qualcommax_ipq60xx
+@@ -15,6 +15,8 @@ cambiumnetworks,xe3-4)
+ 	[ -n "$idx" ] && \
+ 		ubootenv_add_uci_config "/dev/mtd$idx" "0x0" "0x10000" "0x10000"
+ 	;;
++glinet,gl-ax1800|\
++glinet,gl-axt1800|\
+ netgear,wax214)
+ 	idx="$(find_mtd_index 0:appsblenv)"
+ 	[ -n "$idx" ] && \
+diff --git a/package/firmware/ipq-wifi/Makefile b/package/firmware/ipq-wifi/Makefile
+index a2936cfca0..bf05d3efb4 100644
+--- a/package/firmware/ipq-wifi/Makefile
++++ b/package/firmware/ipq-wifi/Makefile
+@@ -42,6 +42,8 @@ ALLWIFIBOARDS:= \
+ 	dynalink_dl-wrx36 \
+ 	edgecore_eap102 \
+ 	edimax_cax1800 \
++	glinet_gl-ax1800 \
++	glinet_gl-axt1800 \
+ 	linksys_homewrk \
+ 	linksys_mx4200 \
+ 	linksys_mx5300 \
+@@ -183,6 +185,8 @@ $(eval $(call generate-ipq-wifi-package,compex_wpq873,Compex WPQ-873))
+ $(eval $(call generate-ipq-wifi-package,dynalink_dl-wrx36,Dynalink DL-WRX36))
+ $(eval $(call generate-ipq-wifi-package,edgecore_eap102,Edgecore EAP102))
+ $(eval $(call generate-ipq-wifi-package,edimax_cax1800,Edimax CAX1800))
++$(eval $(call generate-ipq-wifi-package,glinet_gl-ax1800,GL.iNet GL-AX1800))
++$(eval $(call generate-ipq-wifi-package,glinet_gl-axt1800,GL.iNet GL-AXT1800))
+ $(eval $(call generate-ipq-wifi-package,linksys_homewrk,Linksys HomeWRK))
+ $(eval $(call generate-ipq-wifi-package,linksys_mx4200,Linksys MX4200))
+ $(eval $(call generate-ipq-wifi-package,linksys_mx5300,Linksys MX5300))
+diff --git a/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6000-gl-ax1800.dts b/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6000-gl-ax1800.dts
+new file mode 100644
+index 0000000000..cd6e749607
+--- /dev/null
++++ b/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6000-gl-ax1800.dts
+@@ -0,0 +1,70 @@
++// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
++
++/dts-v1/;
++
++#include "ipq6000-glinet.dtsi"
++
++/ {
++	model = "GL.iNet GL-AX1800";
++	compatible = "glinet,gl-ax1800", "qcom,ipq6018";
++
++	aliases {
++		label-mac-device = &dp1;
++	};
++};
++
++&partitions {
++	partition@a00000 {
++		label = "rootfs";
++		reg = <0x0a00000 0x7300000>;
++	};
++};
++
++&switch {
++	switch_lan_bmp = <(ESS_PORT2 | ESS_PORT3 | ESS_PORT4 | ESS_PORT5)>;
++	switch_wan_bmp = <ESS_PORT1>;
++};
++
++&dp1 {
++	status = "okay";
++	phy-handle = <&qca8075_0>;
++	label = "wan";
++	nvmem-cells = <&macaddr_wan>;
++	nvmem-cell-names = "mac-address";
++};
++
++&dp2 {
++	status = "okay";
++	phy-handle = <&qca8075_1>;
++	label = "lan1";
++	nvmem-cells = <&macaddr_lan>;
++	nvmem-cell-names = "mac-address";
++};
++
++&dp3 {
++	status = "okay";
++	phy-handle = <&qca8075_2>;
++	label = "lan2";
++	nvmem-cells = <&macaddr_lan>;
++	nvmem-cell-names = "mac-address";
++};
++
++&dp4 {
++	status = "okay";
++	phy-handle = <&qca8075_3>;
++	label = "lan3";
++	nvmem-cells = <&macaddr_lan>;
++	nvmem-cell-names = "mac-address";
++};
++
++&dp5 {
++	status = "okay";
++	phy-handle = <&qca8075_4>;
++	label = "lan4";
++	nvmem-cells = <&macaddr_lan>;
++	nvmem-cell-names = "mac-address";
++};
++
++&wifi {
++	qcom,ath11k-calibration-variant = "GL-iNet-GL-AX1800";
++};
+diff --git a/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6000-gl-axt1800.dts b/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6000-gl-axt1800.dts
+new file mode 100644
+index 0000000000..767b15e935
+--- /dev/null
++++ b/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6000-gl-axt1800.dts
+@@ -0,0 +1,169 @@
++// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
++
++/dts-v1/;
++
++#include "ipq6000-glinet.dtsi"
++
++/ {
++	model = "GL.iNet GL-AXT1800";
++	compatible = "glinet,gl-axt1800", "qcom,ipq6018";
++
++	aliases {
++		label-mac-device = &dp1;
++	};
++
++	vcc_sd: regulator-vcc-sd {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc_sd";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++		gpios = <&tlmm 66 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-always-on;
++	};
++
++	vcc_fan: regulator-vcc-fan {
++		compatible = "regulator-fixed";
++		regulator-name = "vcc_fan";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		gpio = <&tlmm 29 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++	};
++
++	fan: pwm-fan {
++		compatible = "pwm-fan";
++		pwms = <&pwm 1 40000 0>;
++		fan-supply = <&vcc_fan>;
++		interrupt-parent = <&tlmm>;
++		interrupts = <31 IRQ_TYPE_EDGE_RISING>;
++		cooling-levels = <36 128 192 255>;
++		#cooling-cells = <2>;
++	};
++
++	thermal-zones {
++		cpu-thermal {
++			trips {
++				cpu_trip_high: active-high {
++					temperature = <100000>;
++					hysteresis = <2000>;
++					type = "active";
++				};
++
++				cpu_trip_med: active-med {
++					temperature = <75000>;
++					hysteresis = <2000>;
++					type = "active";
++				};
++
++				cpu_trip_low: active-low {
++					temperature = <50000>;
++					hysteresis = <2000>;
++					type = "active";
++				};
++			};
++
++			cooling-maps {
++				cpu-active-high {
++					cooling-device = <&fan 3 3>;
++					trip = <&cpu_trip_high>;
++				};
++
++				cpu-active-med {
++					cooling-device = <&fan 2 2>;
++					trip = <&cpu_trip_med>;
++				};
++
++				cpu-active-low {
++					cooling-device = <&fan 1 1>;
++					trip = <&cpu_trip_low>;
++				};
++			};
++		};
++	};
++};
++
++&tlmm {
++	pwm_pins: pwm-pins {
++		pwm {
++			pins = "gpio30";
++			function = "pwm13";
++			drive-strength = <8>;
++		};
++	};
++
++	sd_pins: sd-pins {
++		sd {
++			pins = "gpio62";
++			function = "sd_card";
++			bias-pull-up;
++		};
++		ldo {
++			pins = "gpio66";
++			function = "gpio";
++			bias-pull-up;
++		};
++	};
++};
++
++&partitions {
++	partition@a00000 {
++		label = "rootfs";
++		reg = <0x0a00000 0x7280000>;
++	};
++
++	partition@7c80000 {
++		label = "log";
++		reg = <0x7c80000 0x0080000>;
++	};
++};
++
++&pwm {
++	pinctrl-0 = <&pwm_pins>;
++	pinctrl-names = "default";
++	status = "okay";
++};
++
++&sdhc {
++	mmc-ddr-1_8v;
++	bus-width = <4>;
++	cd-gpios = <&tlmm 62 GPIO_ACTIVE_LOW>;
++	pinctrl-0 = <&sd_pins>;
++	pinctrl-names = "default";
++	vqmmc-supply = <&vcc_sd>;
++	status = "okay";
++};
++
++&switch {
++	switch_lan_bmp = <(ESS_PORT2 | ESS_PORT3)>;
++	switch_wan_bmp = <ESS_PORT1>;
++};
++
++&dp1 {
++	status = "okay";
++	phy-handle = <&qca8075_0>;
++	label = "wan";
++	nvmem-cells = <&macaddr_wan>;
++	nvmem-cell-names = "mac-address";
++};
++
++&dp2 {
++	status = "okay";
++	phy-handle = <&qca8075_1>;
++	label = "lan2";
++	nvmem-cells = <&macaddr_lan>;
++	nvmem-cell-names = "mac-address";
++};
++
++&dp3 {
++	status = "okay";
++	phy-handle = <&qca8075_2>;
++	label = "lan1";
++	nvmem-cells = <&macaddr_lan>;
++	nvmem-cell-names = "mac-address";
++};
++
++&wifi {
++	qcom,ath11k-calibration-variant = "GL-iNet-GL-AXT1800";
++};
+diff --git a/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6000-glinet.dtsi b/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6000-glinet.dtsi
+new file mode 100644
+index 0000000000..fb6706affd
+--- /dev/null
++++ b/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6000-glinet.dtsi
+@@ -0,0 +1,316 @@
++// SPDX-License-Identifier: GPL-2.0-or-later OR MIT
++
++#include "ipq6018-512m.dtsi"
++#include "ipq6018-ess.dtsi"
++
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/leds/common.h>
++
++/ {
++	aliases {
++		led-boot = &led_run;
++		led-failsafe = &led_run;
++		led-running = &led_run;
++		led-upgrade = &led_run;
++		serial0 = &blsp1_uart3;
++		serial1 = &blsp1_uart4;
++		serial2 = &blsp1_uart5;
++	};
++
++	chosen {
++		stdout-path = "serial0:115200n8";
++		bootargs-append = " root=/dev/ubiblock0_1";
++	};
++
++	keys {
++		compatible = "gpio-keys";
++
++		switch {
++			label = "switch";
++			linux,code = <BTN_0>;
++			linux,input-type = <EV_SW>;
++			gpios = <&tlmm 9 GPIO_ACTIVE_LOW>;
++		};
++
++		reset {
++			label = "reset";
++			linux,code = <KEY_RESTART>;
++			gpios = <&tlmm 18 GPIO_ACTIVE_LOW>;
++		};
++	};
++
++	leds {
++		compatible = "gpio-leds";
++
++		led_run: run {
++			label = "blue:run";
++			color = <LED_COLOR_ID_BLUE>;
++			gpios = <&tlmm 37 GPIO_ACTIVE_HIGH>;
++		};
++
++		system {
++			label = "white:system";
++			color = <LED_COLOR_ID_WHITE>;
++			gpios = <&tlmm 35 GPIO_ACTIVE_HIGH>;
++		};
++	};
++
++	reg_usb_vbus: regulator-usb-vbus {
++		compatible = "regulator-fixed";
++		regulator-name = "usb_vbus";
++		regulator-min-microvolt = <5000000>;
++		regulator-max-microvolt = <5000000>;
++		gpio = <&tlmm 0 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++		regulator-boot-on;
++	};
++};
++
++&tlmm {
++	mdio_pins: mdio-pins {
++		mdc {
++			pins = "gpio64";
++			function = "mdc";
++			drive-strength = <8>;
++			bias-pull-up;
++		};
++
++		mdio {
++			pins = "gpio65";
++			function = "mdio";
++			drive-strength = <8>;
++			bias-pull-up;
++		};
++	};
++
++	tluart_pins: tluart-pins {
++		mux {
++			pins = "gpio75", "gpio76";
++			function = "blsp3_uart";
++			drive-strength = <8>;
++			bias-disable;
++		};
++	};
++
++	hsuart_pins: hsuart-pins {
++		mux {
++			pins = "gpio57", "gpio58";
++			function = "blsp4_uart";
++			drive-strength = <8>;
++			bias-disable;
++		};
++	};
++};
++
++&blsp1_uart3 {
++	pinctrl-0 = <&serial_3_pins>;
++	pinctrl-names = "default";
++	status = "okay";
++};
++
++&blsp1_uart4 {
++	pinctrl-0 = <&tluart_pins>;
++	pinctrl-names = "default";
++	status = "okay";
++};
++
++&blsp1_uart5 {
++	pinctrl-0 = <&hsuart_pins>;
++	pinctrl-names = "default";
++	status = "okay";
++};
++
++&qpic_bam {
++	status = "okay";
++};
++
++&qpic_nand {
++	status = "okay";
++
++	nand@0 {
++		reg = <0>;
++		nand-ecc-strength = <4>;
++		nand-ecc-step-size = <512>;
++		nand-bus-width = <8>;
++		#address-cells = <1>;
++		#size-cells = <1>;
++
++		partitions: partitions {
++			compatible = "fixed-partitions";
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			partition@0 {
++				label = "0:sbl1";
++				reg = <0x0000000 0x0180000>;
++				read-only;
++			};
++
++			partition@180000 {
++				label = "0:mibib";
++				reg = <0x0180000 0x0100000>;
++				read-only;
++			};
++
++			partition@280000 {
++				label = "0:qsee";
++				reg = <0x0280000 0x0380000>;
++				read-only;
++			};
++
++			partition@600000 {
++				label = "0:devcfg";
++				reg = <0x0600000 0x0080000>;
++				read-only;
++			};
++
++			partition@680000 {
++				label = "0:rpm";
++				reg = <0x0680000 0x0080000>;
++				read-only;
++			};
++
++			partition@700000 {
++				label = "0:cdt";
++				reg = <0x0700000 0x0080000>;
++				read-only;
++			};
++
++			partition@780000 {
++				label = "0:appsblenv";
++				reg = <0x0780000 0x0080000>;
++			};
++
++			partition@800000 {
++				label = "0:appsbl";
++				reg = <0x0800000 0x0180000>;
++				read-only;
++			};
++
++			partition@980000 {
++				label = "0:art";
++				reg = <0x0980000 0x0080000>;
++				read-only;
++
++				nvmem-layout {
++					compatible = "fixed-layout";
++					#address-cells = <1>;
++					#size-cells = <1>;
++
++					macaddr_wan: macaddr@0 {
++						reg = <0x0 0x6>;
++					};
++
++					macaddr_lan: macaddr@6 {
++						reg = <0x6 0x6>;
++					};
++				};
++			};
++
++			/* rootfs defined in variant dts */
++
++			partition@7d00000 {
++				label = "0:ethphyfw";
++				reg = <0x7d00000 0x0080000>;
++				read-only;
++			};
++		};
++	};
++};
++
++&qusb_phy_0 {
++	vdd-supply = <&reg_usb_vbus>;
++	status = "okay";
++};
++
++&ssphy_0 {
++	status = "okay";
++};
++
++&usb3 {
++	status = "okay";
++};
++
++&rpm {
++	status = "disabled";
++};
++
++&mdio {
++	status = "okay";
++
++	pinctrl-0 = <&mdio_pins>;
++	pinctrl-names = "default";
++	reset-gpios = <&tlmm 74 GPIO_ACTIVE_LOW>;
++
++	ethernet-phy-package@0 {
++		compatible = "qcom,qca8075-package";
++		#address-cells = <1>;
++		#size-cells = <0>;
++		reg = <0>;
++
++		qca8075_0: ethernet-phy@0 {
++			compatible = "ethernet-phy-ieee802.3-c22";
++			reg = <0>;
++		};
++
++		qca8075_1: ethernet-phy@1 {
++			compatible = "ethernet-phy-ieee802.3-c22";
++			reg = <1>;
++		};
++
++		qca8075_2: ethernet-phy@2 {
++			compatible = "ethernet-phy-ieee802.3-c22";
++			reg = <2>;
++		};
++
++		qca8075_3: ethernet-phy@3 {
++			compatible = "ethernet-phy-ieee802.3-c22";
++			reg = <3>;
++		};
++
++		qca8075_4: ethernet-phy@4 {
++			compatible = "ethernet-phy-ieee802.3-c22";
++			reg = <4>;
++		};
++	};
++};
++
++&switch {
++	status = "okay";
++
++	switch_mac_mode = <MAC_MODE_PSGMII>;
++
++	qcom,port_phyinfo {
++		port@1 {
++			port_id = <1>;
++			phy_address = <0>;
++		};
++		port@2 {
++			port_id = <2>;
++			phy_address = <1>;
++		};
++		port@3 {
++			port_id = <3>;
++			phy_address = <2>;
++		};
++		port@4 {
++			port_id = <4>;
++			phy_address = <3>;
++		};
++		port@5 {
++			port_id = <5>;
++			phy_address = <4>;
++		};
++	};
++};
++
++&edma {
++	status = "okay";
++};
++
++&wifi {
++	status = "okay";
++
++	qcom,ath11k-fw-memory-mode = <1>;
++};
+diff --git a/target/linux/qualcommax/image/ipq60xx.mk b/target/linux/qualcommax/image/ipq60xx.mk
+index 41cfd164ee..eec8340caa 100644
+--- a/target/linux/qualcommax/image/ipq60xx.mk
++++ b/target/linux/qualcommax/image/ipq60xx.mk
+@@ -24,6 +24,34 @@ define Device/cambiumnetworks_xe3-4
+ endef
+ TARGET_DEVICES += cambiumnetworks_xe3-4
+ 
++define Device/glinet_gl-common
++	$(call Device/FitImage)
++	$(call Device/UbiFit)
++	DEVICE_VENDOR := GL.iNet
++	BLOCKSIZE := 128k
++	PAGESIZE := 2048
++	DEVICE_DTS_CONFIG := config@cp03-c1
++	SOC := ipq6000
++	IMAGES += factory.bin
++	IMAGE/factory.bin := append-ubi | append-gl-metadata
++endef
++
++define Device/glinet_gl-ax1800
++	$(call Device/glinet_gl-common)
++	DEVICE_MODEL := GL-AX1800
++	DEVICE_PACKAGES := ipq-wifi-glinet_gl-ax1800
++	SUPPORTED_DEVICES += glinet,ax1800
++endef
++TARGET_DEVICES += glinet_gl-ax1800
++
++define Device/glinet_gl-axt1800
++	$(call Device/glinet_gl-common)
++	DEVICE_MODEL := GL-AXT1800
++	DEVICE_PACKAGES := ipq-wifi-glinet_gl-axt1800 kmod-hwmon-pwmfan
++	SUPPORTED_DEVICES += glinet,axt1800
++endef
++TARGET_DEVICES += glinet_gl-axt1800
++
+ define Device/netgear_wax214
+        $(call Device/FitImage)
+        $(call Device/UbiFit)
+diff --git a/target/linux/qualcommax/ipq60xx/base-files/etc/board.d/02_network b/target/linux/qualcommax/ipq60xx/base-files/etc/board.d/02_network
+index 86d55de7b8..0e5b0f4696 100644
+--- a/target/linux/qualcommax/ipq60xx/base-files/etc/board.d/02_network
++++ b/target/linux/qualcommax/ipq60xx/base-files/etc/board.d/02_network
+@@ -11,7 +11,8 @@ ipq60xx_setup_interfaces()
+ 	local board="$1"
+ 
+ 	case "$board" in
+-	8devices,mango-dvk)
++	8devices,mango-dvk|\
++	glinet,gl-axt1800)
+ 		ucidef_set_interfaces_lan_wan "lan1 lan2" "wan"
+ 		;;
+ 	cambiumnetworks,xe3-4)
+@@ -20,6 +21,7 @@ ipq60xx_setup_interfaces()
+ 	netgear,wax214)
+ 		ucidef_set_interfaces_lan_wan "lan"
+ 		;;
++	glinet,gl-ax1800|\
+ 	yuncore,fap650)
+ 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3 lan4" "wan"
+ 		;;
+diff --git a/target/linux/qualcommax/ipq60xx/base-files/etc/hotplug.d/firmware/11-ath11-caldata b/target/linux/qualcommax/ipq60xx/base-files/etc/hotplug.d/firmware/11-ath11-caldata
+index cc2de7514e..29c7277fb0 100644
+--- a/target/linux/qualcommax/ipq60xx/base-files/etc/hotplug.d/firmware/11-ath11-caldata
++++ b/target/linux/qualcommax/ipq60xx/base-files/etc/hotplug.d/firmware/11-ath11-caldata
+@@ -15,6 +15,14 @@ case "$FIRMWARE" in
+ 	cambiumnetworks,xe3-4)
+ 		caldata_extract "0:ART" 0x1000 0x10000
+ 		;;
++	glinet,gl-ax1800|\
++	glinet,gl-axt1800)
++		caldata_extract "0:art" 0x1000 0x10000
++		label_mac=$(get_mac_label)
++		ath11k_patch_mac $(macaddr_add $label_mac 3) 0
++		ath11k_patch_mac $(macaddr_add $label_mac 2) 1
++		ath11k_set_macflag
++		;;
+ 	netgear,wax214)
+ 		caldata_extract "0:art" 0x1000 0x10000
+ 		;;
+diff --git a/target/linux/qualcommax/ipq60xx/base-files/lib/upgrade/platform.sh b/target/linux/qualcommax/ipq60xx/base-files/lib/upgrade/platform.sh
+index cbc6292978..37f6fec153 100644
+--- a/target/linux/qualcommax/ipq60xx/base-files/lib/upgrade/platform.sh
++++ b/target/linux/qualcommax/ipq60xx/base-files/lib/upgrade/platform.sh
+@@ -37,6 +37,8 @@ platform_do_upgrade() {
+ 		fw_setenv bootcount 0
+ 		nand_do_upgrade "$1"
+ 		;;
++	glinet,gl-ax1800|\
++	glinet,gl-axt1800|\
+ 	netgear,wax214)
+ 		nand_do_upgrade "$1"
+ 		;;
+-- 
+2.53.0
+

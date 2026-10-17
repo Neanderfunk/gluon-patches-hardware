@@ -1,0 +1,102 @@
+From 4dd195f2cab003982718f0fc5389ad1451788121 Mon Sep 17 00:00:00 2001
+From: Chukun Pan <amadeus@jmu.edu.cn>
+Date: Wed, 6 Nov 2024 23:10:05 +0800
+Subject: [PATCH 1/2] filogic: move append-gl-metadata to image-commands.mk
+
+This can be used by GL.iNet devices from other target.
+
+Signed-off-by: Chukun Pan <amadeus@jmu.edu.cn>
+Link: https://github.com/openwrt/openwrt/pull/14950
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+---
+ include/image-commands.mk              | 31 ++++++++++++++++++++++++++
+ target/linux/mediatek/image/filogic.mk | 31 --------------------------
+ 2 files changed, 31 insertions(+), 31 deletions(-)
+
+diff --git a/include/image-commands.mk b/include/image-commands.mk
+index 0833650ade..ac63e0a083 100644
+--- a/include/image-commands.mk
++++ b/include/image-commands.mk
+@@ -99,6 +99,37 @@ define Build/append-metadata
+ 	}
+ endef
+ 
++metadata_gl_json = \
++	'{ $(if $(IMAGE_METADATA),$(IMAGE_METADATA)$(comma)) \
++		"metadata_version": "1.1", \
++		"compat_version": "$(call json_quote,$(compat_version))", \
++		$(if $(DEVICE_COMPAT_MESSAGE),"compat_message": "$(call json_quote,$(DEVICE_COMPAT_MESSAGE))"$(comma)) \
++		$(if $(filter-out 1.0,$(compat_version)),"new_supported_devices": \
++			[$(call metadata_devices,$(SUPPORTED_DEVICES))]$(comma) \
++			"supported_devices": ["$(call json_quote,$(legacy_supported_message))"]$(comma)) \
++		$(if $(filter 1.0,$(compat_version)),"supported_devices":[$(call metadata_devices,$(SUPPORTED_DEVICES))]$(comma)) \
++		"version": { \
++			"release": "$(call json_quote,$(VERSION_NUMBER))", \
++			"date": "$(shell TZ='Asia/Chongqing' date '+%Y%m%d%H%M%S')", \
++			"dist": "$(call json_quote,$(VERSION_DIST))", \
++			"version": "$(call json_quote,$(VERSION_NUMBER))", \
++			"revision": "$(call json_quote,$(REVISION))", \
++			"target": "$(call json_quote,$(TARGETID))", \
++			"board": "$(call json_quote,$(if $(BOARD_NAME),$(BOARD_NAME),$(DEVICE_NAME)))" \
++		} \
++	}'
++
++define Build/append-gl-metadata
++	$(if $(SUPPORTED_DEVICES),-echo $(call metadata_gl_json,$(SUPPORTED_DEVICES)) | fwtool -I - $@)
++	sha256sum "$@" | cut -d" " -f1 > "$@.sha256sum"
++	[ ! -s "$(BUILD_KEY)" -o ! -s "$(BUILD_KEY).ucert" -o ! -s "$@" ] || { \
++		cp "$(BUILD_KEY).ucert" "$@.ucert" ;\
++		usign -S -m "$@" -s "$(BUILD_KEY)" -x "$@.sig" ;\
++		ucert -A -c "$@.ucert" -x "$@.sig" ;\
++		fwtool -S "$@.ucert" "$@" ;\
++	}
++endef
++
+ define Build/append-rootfs
+ 	dd if=$(IMAGE_ROOTFS) >> $@
+ endef
+diff --git a/target/linux/mediatek/image/filogic.mk b/target/linux/mediatek/image/filogic.mk
+index 6f9f4595b7..e6b7f897b3 100644
+--- a/target/linux/mediatek/image/filogic.mk
++++ b/target/linux/mediatek/image/filogic.mk
+@@ -52,37 +52,6 @@ define Build/mt798x-gpt
+ 	rm $@.tmp
+ endef
+ 
+-metadata_gl_json = \
+-	'{ $(if $(IMAGE_METADATA),$(IMAGE_METADATA)$(comma)) \
+-		"metadata_version": "1.1", \
+-		"compat_version": "$(call json_quote,$(compat_version))", \
+-		$(if $(DEVICE_COMPAT_MESSAGE),"compat_message": "$(call json_quote,$(DEVICE_COMPAT_MESSAGE))"$(comma)) \
+-		$(if $(filter-out 1.0,$(compat_version)),"new_supported_devices": \
+-			[$(call metadata_devices,$(SUPPORTED_DEVICES))]$(comma) \
+-			"supported_devices": ["$(call json_quote,$(legacy_supported_message))"]$(comma)) \
+-		$(if $(filter 1.0,$(compat_version)),"supported_devices":[$(call metadata_devices,$(SUPPORTED_DEVICES))]$(comma)) \
+-		"version": { \
+-			"release": "$(call json_quote,$(VERSION_NUMBER))", \
+-			"date": "$(shell TZ='Asia/Chongqing' date '+%Y%m%d%H%M%S')", \
+-			"dist": "$(call json_quote,$(VERSION_DIST))", \
+-			"version": "$(call json_quote,$(VERSION_NUMBER))", \
+-			"revision": "$(call json_quote,$(REVISION))", \
+-			"target": "$(call json_quote,$(TARGETID))", \
+-			"board": "$(call json_quote,$(if $(BOARD_NAME),$(BOARD_NAME),$(DEVICE_NAME)))" \
+-		} \
+-	}'
+-
+-define Build/append-gl-metadata
+-	$(if $(SUPPORTED_DEVICES),-echo $(call metadata_gl_json,$(SUPPORTED_DEVICES)) | fwtool -I - $@)
+-	sha256sum "$@" | cut -d" " -f1 > "$@.sha256sum"
+-	[ ! -s "$(BUILD_KEY)" -o ! -s "$(BUILD_KEY).ucert" -o ! -s "$@" ] || { \
+-		cp "$(BUILD_KEY).ucert" "$@.ucert" ;\
+-		usign -S -m "$@" -s "$(BUILD_KEY)" -x "$@.sig" ;\
+-		ucert -A -c "$@.ucert" -x "$@.sig" ;\
+-		fwtool -S "$@.ucert" "$@" ;\
+-	}
+-endef
+-
+ define Build/append-openwrt-one-eeprom
+ 	dd if=$(STAGING_DIR_IMAGE)/mt7981_eeprom_mt7976_dbdc.bin >> $@
+ endef
+-- 
+2.53.0
+
