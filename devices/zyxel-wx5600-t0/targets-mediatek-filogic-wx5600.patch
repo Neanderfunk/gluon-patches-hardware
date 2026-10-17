@@ -1,0 +1,14 @@
+--- a/targets/mediatek-filogic
++++ b/targets/mediatek-filogic
+@@ -345,3 +345,11 @@
+ 	factory = false,
+ 	aliases = {'tp-link-eap683-ur'},
+ })
++
++-- Neanderfunk (gluon-patches-hardware, Zweig v2025.1.x-next): Backport aus
++-- OpenWrt main, devices/zyxel-wx5600-t0. Ersetzt den Bootloader.
++
++device('zyxel-wx5600-t0-openwrt-u-boot-layout', 'zyxel_wx5600-t0-ubootmod', {
++	factory = false,
++	sysupgrade_ext = '.itb',
++})

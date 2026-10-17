@@ -34,6 +34,8 @@ PRE_UPDATE=(
   devices/tplink-eap620-hd-v1/openwrt.sh      # TP-Link EAP620 HD v1 (qualcommax, aus 25.12)
   devices/cudy-m3000-v2-yt8821/openwrt.sh     # Cudy M3000 v2 mit YT8821 (aus 25.12)
   devices/mercusys-mr80x-v2/openwrt.sh        # Mercusys MR80X v2 / MR3000X v2.0, Target qualcommax-ipq50xx (aus main, Kernel 6.6)
+  devices/tplink-eap683/openwrt.sh            # TP-Link EAP683-LR/-UR (filogic, aus main)
+  devices/zyxel-wx5600-t0/openwrt.sh          # Zyxel WX5600-T0, OpenWrt-U-Boot-Layout (filogic, aus main, mit U-Boot/ATF)
   kernel/mt7915-ps-aql/openwrt.sh             # mt7915/mt798x Power-Save/AQL aus Gluon main (#3673), ersetzt Gluons 0012
   kernel/mt76x02-thermal/openwrt.sh           # TEST: MT7610E/MT7612E-Temperatur als Thermal-Zone (Test, Rueckrollen nach dem Test moeglich)
   kernel/mpc85xx-simpleimage-loader/openwrt.sh # mpc85xx: Loader-Adressen (WS-AP3715i-sysupgrade, AP3825i-initramfs), #25541 + Nachbau #25257
@@ -61,6 +63,8 @@ POST_UPDATE=(
   devices/cudy-m3000-v2-yt8821/targets.sh
   devices/mercusys-mr80x-v2/targets.sh
   targets/filogic-mt7986.sh                   # MT7986-Geraete aus OpenWrt 24.10, nur Gluon-Eintraege (nach zyxel-nwa90ax/targets.sh)
+  devices/tplink-eap683/targets.sh            # nach filogic-mt7986.sh (haengt dahinter an)
+  devices/zyxel-wx5600-t0/targets.sh          # nach tplink-eap683/targets.sh
   devices/add-cellular.sh                     # ZTE MF286R
   network/interfaces-patch.sh                 # primaere MACs und Schnittstellen der zusaetzlichen Geraete
   kernel/rtl8221b-skip-mmd30.sh               # RTL8221B: MMD 30 beim PHY-Scan auslassen

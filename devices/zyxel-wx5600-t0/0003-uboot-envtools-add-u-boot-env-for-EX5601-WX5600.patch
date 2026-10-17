@@ -1,0 +1,49 @@
+From a6a63b85589b2ec6359ddce4f52ee8d04a24a085 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Pawe=C5=82=20Owoc?= <frut3k7@gmail.com>
+Date: Sun, 29 Mar 2026 14:28:55 +0200
+Subject: [PATCH 3/4] uboot-envtools: add u-boot-env for EX5601/WX5600
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Add ability to read u-boot-env partition as sys env
+for Zyxel EX5601 and WX5600 with custom partitions.
+
+Signed-off-by: Paweł Owoc <frut3k7@gmail.com>
+Link: https://github.com/openwrt/openwrt/pull/22670
+Signed-off-by: Robert Marko <robimarko@gmail.com>
+(cherry picked from commit 263751111e0243f2eb49eab2d41526589ee1d8b7)
+---
+ package/boot/uboot-envtools/files/mediatek_filogic | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/package/boot/uboot-envtools/files/mediatek_filogic b/package/boot/uboot-envtools/files/mediatek_filogic
+index 07f8d1d557..bcba4cd3a7 100644
+--- a/package/boot/uboot-envtools/files/mediatek_filogic
++++ b/package/boot/uboot-envtools/files/mediatek_filogic
+@@ -51,9 +51,7 @@ tplink,tl-xdr6088|\
+ tplink,tl-xtr8488|\
+ xiaomi,mi-router-ax3000t-ubootmod|\
+ xiaomi,mi-router-wr30u-ubootmod|\
+-xiaomi,redmi-router-ax6000-ubootmod|\
+-zyxel,ex5601-t0-ubootmod|\
+-zyxel,wx5600-t0-ubootmod)
++xiaomi,redmi-router-ax6000-ubootmod)
+ 	ubootenv_add_ubi_default
+ 	;;
+ acer,predator-w6|\
+@@ -148,6 +146,11 @@ zyxel,ex5601-t0)
+ 	local envdev=/dev/mtd$(find_mtd_index "u-boot-env")
+ 	ubootenv_add_uci_config "$envdev" "0x0" "0x20000" "0x40000" "2"
+ 	;;
++zyxel,ex5601-t0-ubootmod|\
++zyxel,wx5600-t0-ubootmod)
++	ubootenv_add_ubi_default
++	ubootenv_add_sys_mtd "u-boot-env" "0x0" "0x20000" "0x40000" "2"
++	;;
+ zyxel,ex5700-telenor)
+ 	ubootenv_add_uci_config "/dev/ubootenv" "0x0" "0x4000" "0x4000" "1"
+ 	;;
+-- 
+2.53.0
+

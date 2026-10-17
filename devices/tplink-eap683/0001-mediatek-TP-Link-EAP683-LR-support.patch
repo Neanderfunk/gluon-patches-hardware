@@ -1,0 +1,517 @@
+From 4005eeb9ff114aaf8eccf358398a3660f4cd5871 Mon Sep 17 00:00:00 2001
+From: Stijn Tintel <stijn@linux-ipv6.be>
+Date: Sat, 6 Apr 2024 01:45:25 +0300
+Subject: [PATCH 1/2] mediatek: TP-Link EAP683-LR support
+
+Add support for the TP-Link EAP683-LR, an AX6000 Ceiling Mount WiFi 6
+AP.
+
+Hardware:
+* SoC: MediaTek MT7896AV
+* RAM: 1GiB DDR4 (Samsung K4A8G165WC-BCTD)
+* Flash: 128MiB SPI-NAND (ESMT F50L1G41LB)
+* Ethernet: 1x 10/100/1000/2500 Mbps PoE-PD (MaxLinear GPY211C)
+* WiFi: MT7976AN/MT7976GN 2.4/5GHz 4T4R
+* LEDS: 3x blue connected to a single GPIO line
+* Buttons: 1x reset
+* BLE/Thread/Zigbee: CC2652
+
+Stock firmware uses a random MAC address for ethernet, label MAC for
+2.4 and label MAC + for 5GHz.
+
+Installation via bootloader:
+* Solder JST??? connector on J255, alternatively solder wires on the
+  TP13-TP15 pads. Pinout: TP13: TX, TP14: RX, TP15: GND, TP16: VCC.
+  The pins for J255 are in the same order.
+* Interrupt boot process by repeatedly pressing Ctrl+b during boot
+* In the boot menu, select U-Boot console
+* Ensure the U-Boot environment variable "tp_boot_idx" is not set:
+  # setenv tp_boot_idx
+  # saveenv
+* Boot the OpenWrt initramfs:
+  # tftpboot openwrt-mediatek-filogic-tplink_eap683-lr-initramfs-kernel.bin
+  # bootm
+* copy openwrt-mediatek-filogic-tplink_eap683-lr-squashfs-sysupgrade.bin
+  to /tmp and install it using sysupgrade
+
+Flashing via OEM firmware is currently not supported. The
+tplink-safeloader utility does not recognize the OEM firmware:
+
+  DEBUG: can not find fwuphdr
+  Firmware image partitions:
+  base     size     name
+  Segmentation fault (core dumped)
+
+To revert to the OEM firmware, you can set the U-Boot environment
+variable "tp_boot_idx" to 1 via bootloader, or using fw_setenv via
+OpenWrt. This should result in booting from the ubi1 partition, which
+OpenWrt should not touch. Then use the web interface to upgrade
+firmware: System > Firmware Update.
+
+The OEM firmware uses 0x800000 for the runtime_backup partition size.
+This causes the following warning:
+
+  mtd: partition "runtime_backup" extends beyond the end of device "nmbm_spim_nand" -- size truncated to 0x600000
+
+This is due to the NMBM reserved blocks. Use 0x600000 in our DTS.
+
+Thanks to init Lab's user890104, who soldered jumper wires on the TTL
+pads for me so I could have serial console. My soldering skills just
+aren't good enough to pull that off without risk damaging things.
+
+Signed-off-by: Stijn Tintel <stijn@linux-ipv6.be>
+(cherry picked from commit f1749142ca59c3877ce70b7c97475f4416cf74a8)
+
+[Neanderfunk: an OpenWrt 24.10 / Kernel 6.6 angepasst: Kontext in 02_network,
+11_fix_wifi_mac und filogic.mk ohne TP-Link FR365, BE450 und Archer AX80 EU
+(nicht in 24.10). 09_mount_cfg_part: mount_ubi_part bleibt wie in 24.10, damit
+MR80X v3, MR90X v1, Archer AX80 v1 und RE6000XD unveraendert bleiben; fuer den
+EAP683-LR eine eigene Funktion mount_ubi_vol mit der Logik aus main (Partition
+exakt, MTD-Nummern ab 10, Volume-Name abweichend).]
+---
+ .../mediatek/dts/mt7986a-tplink-eap683-lr.dts | 310 ++++++++++++++++++
+ .../filogic/base-files/etc/board.d/02_network |   7 +-
+ .../etc/hotplug.d/firmware/11-mt76-caldata    |   3 +
+ .../etc/hotplug.d/ieee80211/11_fix_wifi_mac   |   5 +
+ .../base-files/lib/preinit/09_mount_cfg_part  |  17 +
+ target/linux/mediatek/image/filogic.mk        |  17 +
+ 6 files changed, 358 insertions(+), 1 deletion(-)
+ create mode 100644 target/linux/mediatek/dts/mt7986a-tplink-eap683-lr.dts
+
+diff --git a/target/linux/mediatek/dts/mt7986a-tplink-eap683-lr.dts b/target/linux/mediatek/dts/mt7986a-tplink-eap683-lr.dts
+new file mode 100644
+index 0000000000..85ed4570eb
+--- /dev/null
++++ b/target/linux/mediatek/dts/mt7986a-tplink-eap683-lr.dts
+@@ -0,0 +1,310 @@
++// SPDX-License-Identifier: GPL-2.0-only OR MIT
++
++/dts-v1/;
++#include <dt-bindings/gpio/gpio.h>
++#include <dt-bindings/input/input.h>
++#include <dt-bindings/leds/common.h>
++#include <dt-bindings/pinctrl/mt65xx.h>
++
++#include "mt7986a.dtsi"
++
++/ {
++	compatible = "tplink,eap683-lr", "mediatek,mt7986a";
++	model = "TP-Link EAP683-LR";
++
++	aliases {
++		serial0 = &uart0;
++		led-boot = &led_sys;
++		led-running = &led_sys;
++		led-upgrade = &led_sys;
++		led-failsafe = &led_sys;
++	};
++
++	/*
++	 * OEM U-Boot overwrites bootargs set in u-boot-env when running the mtkboardboot command
++	 *
++	 * with tp_boot_idx unset or set != 1:
++	 * console=ttyS0,115200n1 ubi.mtd=rootfs root=/dev/ubiblock0_0 rootfstype=squashfs rootwait loglevel=8 earlycon=uart8250,mmio32,0x11002000
++	 *
++	 * with tp_boot_idx set to 1:
++	 * console=ttyS0,115200n1 ubi.mtd=rootfs_1 root=/dev/ubiblock0_0 rootfstype=squashfs rootwait loglevel=8 earlycon=uart8250,mmio32,0x11002000
++	 */
++
++	chosen {
++		bootargs-append = " ubi.mtd=ubi root=/dev/ubiblock0_1";
++		stdout-path = "serial0:115200n8";
++	};
++
++	memory@40000000 {
++		reg = <0 0x40000000 0 0x20000000>;
++		device_type = "memory";
++	};
++
++	gpio-export {
++		compatible = "gpio-export";
++
++		cc2652_backdoor {
++			gpio-export,name = "cc2652_backdoor";
++			gpio-export,output = <1>;
++			gpios = <&pio 44 GPIO_ACTIVE_HIGH>;
++		};
++
++		cc2652_reset {
++			gpio-export,name = "cc2652_reset";
++			gpio-export,output = <1>;
++			gpios = <&pio 7 GPIO_ACTIVE_HIGH>;
++		};
++	};
++
++	keys {
++		compatible = "gpio-keys";
++
++		key-restart {
++			label = "Reset";
++			gpios = <&pio 9 GPIO_ACTIVE_LOW>;
++			linux,code = <KEY_RESTART>;
++		};
++	};
++
++	leds {
++		compatible = "gpio-leds";
++
++		led_sys: led-0 {
++			function = LED_FUNCTION_STATUS;
++			color = <LED_COLOR_ID_BLUE>;
++			gpios = <&pio 11 GPIO_ACTIVE_HIGH>;
++		};
++	};
++};
++
++&crypto {
++	status = "okay";
++};
++
++&eth {
++	status = "okay";
++
++	mac@1 {
++		compatible = "mediatek,eth-mac";
++		reg = <1>;
++		phy-handle = <&phy5>;
++		phy-mode = "2500base-x";
++	};
++
++	mdio-bus {
++		#address-cells = <1>;
++		#size-cells = <0>;
++		reset-gpios = <&pio 10 GPIO_ACTIVE_LOW>;
++		reset-delay-us = <600>;
++		reset-post-delay-us = <20000>;
++
++		phy5: ethernet-phy@5 {
++			compatible = "maxlinear,gpy211", "ethernet-phy-ieee802.3-c45";
++			reg = <5>;
++			phy-mode = "2500base-x";
++		};
++	};
++};
++
++&pcie {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pcie_pins>;
++	status = "okay";
++};
++
++&pcie_phy {
++	status = "okay";
++};
++
++&pio {
++	pcie_pins: pcie-pins {
++		mux {
++			function = "pcie";
++			groups = "pcie_clk", "pcie_wake", "pcie_pereset";
++		};
++	};
++
++	spi_flash_pins: spi-flash-pins-33-to-38 {
++		mux {
++			function = "spi";
++			groups = "spi0", "spi0_wp_hold";
++		};
++		conf-pu {
++			pins = "SPI2_CS", "SPI2_HOLD", "SPI2_WP";
++			drive-strength = <MTK_DRIVE_8mA>;
++			mediatek,pull-up-adv = <MTK_PUPD_SET_R1R0_11>;
++		};
++		conf-pd {
++			pins = "SPI2_CLK", "SPI2_MOSI", "SPI2_MISO";
++			drive-strength = <MTK_DRIVE_8mA>;
++			mediatek,pull-down-adv = <MTK_PUPD_SET_R1R0_11>;
++		};
++	};
++
++	uart2_pins: uart2-pins {
++		mux {
++			function = "uart";
++			groups = "uart2_0_rx_tx", "uart2_0_cts_rts";
++		};
++	};
++
++	wf_2g_5g_pins: wf_2g_5g-pins {
++		mux {
++			function = "wifi";
++			groups = "wf_2g", "wf_5g";
++		};
++		conf {
++			pins = "WF0_HB1", "WF0_HB2", "WF0_HB3", "WF0_HB4",
++			       "WF0_HB0", "WF0_HB0_B", "WF0_HB5", "WF0_HB6",
++			       "WF0_HB7", "WF0_HB8", "WF0_HB9", "WF0_HB10",
++			       "WF0_TOP_CLK", "WF0_TOP_DATA", "WF1_HB1",
++			       "WF1_HB2", "WF1_HB3", "WF1_HB4", "WF1_HB0",
++			       "WF1_HB5", "WF1_HB6", "WF1_HB7", "WF1_HB8",
++			       "WF1_TOP_CLK", "WF1_TOP_DATA";
++			drive-strength = <MTK_DRIVE_4mA>;
++		};
++	};
++
++	wf_dbdc_pins: wf-dbdc-pins {
++		mux {
++			function = "wifi";
++			groups = "wf_dbdc";
++		};
++		conf {
++			pins = "WF0_HB1", "WF0_HB2", "WF0_HB3", "WF0_HB4",
++				"WF0_HB0", "WF0_HB0_B", "WF0_HB5", "WF0_HB6",
++				"WF0_HB7", "WF0_HB8", "WF0_HB9", "WF0_HB10",
++				"WF0_TOP_CLK", "WF0_TOP_DATA", "WF1_HB1",
++				"WF1_HB2", "WF1_HB3", "WF1_HB4", "WF1_HB0",
++				"WF1_HB5", "WF1_HB6", "WF1_HB7", "WF1_HB8",
++				"WF1_TOP_CLK", "WF1_TOP_DATA";
++			drive-strength = <MTK_DRIVE_4mA>;
++		};
++	};
++};
++
++&spi0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&spi_flash_pins>;
++	status = "okay";
++
++	flash@0 {
++		compatible = "spi-nand";
++		reg = <0>;
++		#address-cells = <1>;
++		#size-cells = <1>;
++		spi-max-frequency = <52000000>;
++		spi-rx-bus-width = <4>;
++		spi-tx-bus-width = <4>;
++		mediatek,nmbm;
++		mediatek,bmt-max-ratio = <1>;
++		mediatek,bmt-max-reserved-blocks = <64>;
++
++		partitions {
++			compatible = "fixed-partitions";
++			#address-cells = <1>;
++			#size-cells = <1>;
++
++			partition@0 {
++				reg = <0x0 0x100000>;
++				label = "BL2";
++				read-only;
++			};
++
++			partition@100000 {
++				reg = <0x100000 0x100000>;
++				label = "boot-config";
++				read-only;
++			};
++
++			partition@200000 {
++				reg = <0x200000 0x100000>;
++				label = "boot-config1";
++				read-only;
++			};
++
++			partition@300000 {
++				compatible = "u-boot,env";
++				reg = <0x300000 0x100000>;
++				label = "u-boot-env";
++			};
++
++			partition@400000 {
++				reg = <0x400000 0x200000>;
++				label = "FIP0";
++				read-only;
++			};
++
++			partition@600000 {
++				reg = <0x600000 0x200000>;
++				label = "FIP1";
++				read-only;
++			};
++
++			partition@800000 {
++				reg = <0x800000 0x100000>;
++				label = "oops";
++			};
++
++			partition@900000 {
++				reg = <0x900000 0x2680000>;
++				label = "ubi";
++			};
++
++			partition@2f80000 {
++				reg = <0x2f80000 0x2680000>;
++				label = "ubi1";
++				read-only;
++			};
++
++			partition@5600000 {
++				reg = <0x5600000 0x800000>;
++				label = "factory";
++				read-only;
++			};
++
++			partition@5e00000 {
++				reg = <0x5e00000 0xc00000>;
++				label = "runtime_data";
++				read-only;
++			};
++
++			partition@6a00000 {
++				reg = <0x6a00000 0x800000>;
++				label = "backup_data";
++				read-only;
++			};
++
++			partition@7200000 {
++				reg = <0x7200000 0x600000>;
++				label = "runtime_backup";
++				read-only;
++			};
++		};
++	};
++};
++
++&trng {
++	status = "okay";
++};
++
++&uart0 {
++	status = "okay";
++};
++
++&uart2 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&uart2_pins>;
++	status = "okay";
++};
++
++&watchdog {
++	status = "okay";
++};
++
++&wifi {
++	pinctrl-names = "default", "dbdc";
++	pinctrl-0 = <&wf_2g_5g_pins>;
++	pinctrl-1 = <&wf_dbdc_pins>;
++	status = "okay";
++};
+diff --git a/target/linux/mediatek/filogic/base-files/etc/board.d/02_network b/target/linux/mediatek/filogic/base-files/etc/board.d/02_network
+index f6b5036772..eb5710b883 100644
+--- a/target/linux/mediatek/filogic/base-files/etc/board.d/02_network
++++ b/target/linux/mediatek/filogic/base-files/etc/board.d/02_network
+@@ -19,7 +19,8 @@ mediatek_setup_interfaces()
+ 	zbtlink,zbt-z8103ax)
+ 		ucidef_set_interfaces_lan_wan "lan1 lan2 lan3" eth1
+ 		;;
+-	acelink,ew-7886cax)
++	acelink,ew-7886cax|\
++	tplink,eap683-lr)
+ 		ucidef_set_interface_lan "eth0" "dhcp"
+ 		;;
+ 	acer,predator-w6|\
+@@ -209,6 +210,10 @@ mediatek_setup_macs()
+ 		wan_mac=$label_mac
+ 		lan_mac=$(macaddr_add "$label_mac" 1)
+ 		;;
++	tplink,eap683-lr)
++		label_mac=$(get_mac_binary "/tmp/factory/default-mac" 0)
++		lan_mac=$label_mac
++		;;
+ 	xiaomi,mi-router-ax3000t|\
+ 	xiaomi,mi-router-ax3000t-ubootmod|\
+ 	xiaomi,mi-router-wr30u-stock|\
+diff --git a/target/linux/mediatek/filogic/base-files/etc/hotplug.d/firmware/11-mt76-caldata b/target/linux/mediatek/filogic/base-files/etc/hotplug.d/firmware/11-mt76-caldata
+index 1d9db845db..8a13a3a702 100644
+--- a/target/linux/mediatek/filogic/base-files/etc/hotplug.d/firmware/11-mt76-caldata
++++ b/target/linux/mediatek/filogic/base-files/etc/hotplug.d/firmware/11-mt76-caldata
+@@ -33,6 +33,9 @@ case "$FIRMWARE" in
+ 		ln -sf /tmp/tp_data/MT7986_EEPROM.bin \
+ 			/lib/firmware/$FIRMWARE
+ 		;;
++	tplink,eap683-lr)
++		ln -sf /tmp/factory/radio /lib/firmware/$FIRMWARE
++		;;
+ 	esac
+ 	;;
+ *)
+diff --git a/target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac b/target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac
+index d15f831e4d..4873564944 100644
+--- a/target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac
++++ b/target/linux/mediatek/filogic/base-files/etc/hotplug.d/ieee80211/11_fix_wifi_mac
+@@ -184,6 +184,11 @@ case "$board" in
+ 		[ "$PHYNBR" = "0" ] && macaddr_add $addr 2 > /sys${DEVPATH}/macaddress
+ 		[ "$PHYNBR" = "1" ] && macaddr_add $addr 3 > /sys${DEVPATH}/macaddress
+ 		;;
++	tplink,eap683-lr)
++		addr=$(get_mac_label)
++		[ "$PHYNBR" = "0" ] && echo $addr > /sys${DEVPATH}/macaddress
++		[ "$PHYNBR" = "1" ] && macaddr_add $addr 1 > /sys${DEVPATH}/macaddress
++		;;
+ 	tplink,tl-xdr4288|\
+ 	tplink,tl-xdr6086|\
+ 	tplink,tl-xdr6088)
+diff --git a/target/linux/mediatek/filogic/base-files/lib/preinit/09_mount_cfg_part b/target/linux/mediatek/filogic/base-files/lib/preinit/09_mount_cfg_part
+index 87e51a4429..1fdfff31c4 100644
+--- a/target/linux/mediatek/filogic/base-files/lib/preinit/09_mount_cfg_part
++++ b/target/linux/mediatek/filogic/base-files/lib/preinit/09_mount_cfg_part
+@@ -10,6 +10,20 @@ mount_ubi_part() {
+ 	mount -r -t ubifs ubi$ubi_num:$part_name /tmp/$part_name
+ }
+ 
++# mount_ubi_vol <mtd-name> <ubi-volume>: like mount_ubi_part, but the UBI volume
++# name may differ from the MTD partition name, the partition is matched exactly
++# and MTD numbers above 9 work. Mounted read-only at /tmp/<mtd-name>.
++mount_ubi_vol() {
++	local mtd_name="$1"
++	local vol_name="$2"
++	local mtd_num=$(grep \"$mtd_name\" /proc/mtd | cut -d: -f1 | sed 's/mtd//g')
++	local ubi_num=$(ubiattach -m $mtd_num | \
++		awk -F',' '/UBI device number [0-9]{1,}/{print $1}' | \
++		awk '{print $4}')
++	mkdir /tmp/$mtd_name
++	mount -r -t ubifs ubi$ubi_num:$vol_name /tmp/$mtd_name
++}
++
+ preinit_mount_cfg_part() {
+ 	case $(board_name) in
+ 	mercusys,mr80x-v3|\
+@@ -18,6 +32,9 @@ preinit_mount_cfg_part() {
+ 	tplink,re6000xd)
+ 		mount_ubi_part "tp_data"
+ 		;;
++	tplink,eap683-lr)
++		mount_ubi_vol "factory" "ubi_factory_data"
++		;;
+ 	*)
+ 		;;
+ 	esac
+diff --git a/target/linux/mediatek/image/filogic.mk b/target/linux/mediatek/image/filogic.mk
+index 2551b7f61a..492dfbe0e0 100644
+--- a/target/linux/mediatek/image/filogic.mk
++++ b/target/linux/mediatek/image/filogic.mk
+@@ -1859,6 +1859,23 @@ define Device/tplink_archer-ax80-v1
+ endef
+ TARGET_DEVICES += tplink_archer-ax80-v1
+ 
++define Device/tplink_eap683-lr
++  DEVICE_VENDOR := TP-Link
++  DEVICE_MODEL := EAP683-LR
++  DEVICE_DTS := mt7986a-tplink-eap683-lr
++  DEVICE_DTS_DIR := ../dts
++  DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware
++  UBINIZE_OPTS := -E 5
++  BLOCKSIZE := 128k
++  PAGESIZE := 2048
++  IMAGE_SIZE := 39424k
++  KERNEL_IN_UBI := 1
++  IMAGES += factory.bin
++  IMAGE/factory.bin := append-ubi | check-size $$$$(IMAGE_SIZE)
++  IMAGE/sysupgrade.bin := sysupgrade-tar | append-metadata
++endef
++TARGET_DEVICES += tplink_eap683-lr
++
+ define Device/tplink_re6000xd
+   DEVICE_VENDOR := TP-Link
+   DEVICE_MODEL := RE6000XD
+-- 
+2.53.0
+

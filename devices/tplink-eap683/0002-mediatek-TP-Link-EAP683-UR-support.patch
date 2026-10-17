@@ -1,0 +1,30 @@
+From fc595cf542e2758630755cf5e856f21197cd081e Mon Sep 17 00:00:00 2001
+From: Stijn Tintel <stijn@linux-ipv6.be>
+Date: Sat, 1 Mar 2025 19:07:30 +0200
+Subject: [PATCH 2/2] mediatek: TP-Link EAP683-UR support
+
+The TP-Link EAP683-UR is identical to the EAP683-LR. Add it as ALT0
+variant.
+
+Signed-off-by: Stijn Tintel <stijn@linux-ipv6.be>
+(cherry picked from commit 708dcca80a0b19aacd32e2bd4530b88461f87581)
+---
+ target/linux/mediatek/image/filogic.mk | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/target/linux/mediatek/image/filogic.mk b/target/linux/mediatek/image/filogic.mk
+index 492dfbe0e0..6a0c65e206 100644
+--- a/target/linux/mediatek/image/filogic.mk
++++ b/target/linux/mediatek/image/filogic.mk
+@@ -1862,6 +1862,8 @@ TARGET_DEVICES += tplink_archer-ax80-v1
+ define Device/tplink_eap683-lr
+   DEVICE_VENDOR := TP-Link
+   DEVICE_MODEL := EAP683-LR
++  DEVICE_ALT0_VENDOR := TP-Link
++  DEVICE_ALT0_MODEL := EAP683-UR
+   DEVICE_DTS := mt7986a-tplink-eap683-lr
+   DEVICE_DTS_DIR := ../dts
+   DEVICE_PACKAGES := kmod-mt7915e kmod-mt7986-firmware mt7986-wo-firmware
+-- 
+2.53.0
+

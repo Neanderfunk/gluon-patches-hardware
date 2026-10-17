@@ -1,0 +1,14 @@
+--- a/targets/mediatek-filogic
++++ b/targets/mediatek-filogic
+@@ -337,3 +337,11 @@
+ device('zyxel-ex5700-telenor', 'zyxel_ex5700-telenor', {
+ 	factory = false,
+ })
++
++-- Neanderfunk (gluon-patches-hardware, Zweig v2025.1.x-next): Backport aus
++-- OpenWrt main, devices/tplink-eap683. Installation über UART und TFTP.
++
++device('tp-link-eap683-lr', 'tplink_eap683-lr', {
++	factory = false,
++	aliases = {'tp-link-eap683-ur'},
++})
