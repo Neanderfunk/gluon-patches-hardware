@@ -1,13 +1,14 @@
-From 4dd195f2cab003982718f0fc5389ad1451788121 Mon Sep 17 00:00:00 2001
+From 1ce97bed23d1ef23def0950ce301bd8c487f686b Mon Sep 17 00:00:00 2001
 From: Chukun Pan <amadeus@jmu.edu.cn>
 Date: Wed, 6 Nov 2024 23:10:05 +0800
-Subject: [PATCH 1/2] filogic: move append-gl-metadata to image-commands.mk
+Subject: [PATCH 1/6] filogic: move append-gl-metadata to image-commands.mk
 
 This can be used by GL.iNet devices from other target.
 
 Signed-off-by: Chukun Pan <amadeus@jmu.edu.cn>
 Link: https://github.com/openwrt/openwrt/pull/14950
 Signed-off-by: Robert Marko <robimarko@gmail.com>
+(cherry picked from commit ddc4f216c6122d81f1cce3e19344a61a1cee701a)
 ---
  include/image-commands.mk              | 31 ++++++++++++++++++++++++++
  target/linux/mediatek/image/filogic.mk | 31 --------------------------

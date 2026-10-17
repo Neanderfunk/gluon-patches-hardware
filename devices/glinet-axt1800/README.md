@@ -30,9 +30,17 @@ der GL-AX1800 ist ungetestet.
 | Nr. | Inhalt |
 | --- | --- |
 | 0001 | `append-gl-metadata` aus filogic.mk nach `include/image-commands.mk` (OpenWrt ddc4f216c6) |
-| 0002 | GL-AX1800/AXT1800 (OpenWrt c3f2bb7afc), an 24.10 angepasst |
+| 0002 | PWM-Knoten für IPQ6018, `CONFIG_PWM_IPQ` (227222f357); Treiber und Binding kamen schon mit der ipq50xx-Serie |
+| 0003 | DTS-Labels klein, CPU-dtsi von ipq6018 und **ipq8074** aufgefrischt (eb9e0f2cff) |
+| 0004 | SDHCI für IPQ6018 aus v6.11, sdcc-Takt (af6cf5d8c0) |
+| 0005 | cpufreq für die IPQ60xx-Varianten, mp5496-Regler (0b33bbc0e6) |
+| 0006 | GL-AX1800/AXT1800 (OpenWrt c3f2bb7afc), an 24.10 angepasst |
 
-Anpassungen in 0002 (Absatz `[Neanderfunk: ...]` in der Commit-Nachricht):
+0001 bis 0006 sind der ganze OpenWrt-PR #14950, in der Reihenfolge von main.
+0003 ändert auch Device Trees von `qualcommax-ipq807x`, ein ipq807x-Bau mit
+der Serie zeigt, ob dort etwas kippt.
+
+Anpassungen in 0006 (Absatz `[Neanderfunk: ...]` in der Commit-Nachricht):
 uboot-envtools liegt in 24.10 unter `package/boot/uboot-envtools` und nutzt
 `ubootenv_add_uci_config`; das Caldata-Skript heißt dort `11-ath11-caldata`;
 die Hunks für Linksys MR7350, Qihoo 360V6 und TP-Link EAP610, die es in 24.10
