@@ -1,4 +1,4 @@
-From 1ae8b606657bfd719d52f481f48989c4e9fc3152 Mon Sep 17 00:00:00 2001
+From 1f0d72328f3965d1073e58b02ad12b37f188b48d Mon Sep 17 00:00:00 2001
 From: Chukun Pan <amadeus@jmu.edu.cn>
 Date: Tue, 5 Mar 2024 22:30:20 +0800
 Subject: [PATCH 5/6] qualcommax: backport cpufreq patch for ipq60xx

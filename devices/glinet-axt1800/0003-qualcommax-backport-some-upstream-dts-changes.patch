@@ -1,6 +1,6 @@
-From c0d246a28990dc463ec5fc27072043b06b035bc7 Mon Sep 17 00:00:00 2001
-From: Chukun Pan <amadeus@jmu.edu.cn>
-Date: Fri, 15 Nov 2024 23:10:39 +0800
+From 5debade9b32c7610613a006cebf9de597b5bcc63 Mon Sep 17 00:00:00 2001
+From: adorfer <adorferen@gmail.com>
+Date: Sun, 18 Oct 2026 01:57:35 +0200
 Subject: [PATCH 3/6] qualcommax: backport some upstream dts changes
 
 This is the minimal change for the upcoming patches.
@@ -10,15 +10,18 @@ Signed-off-by: Chukun Pan <amadeus@jmu.edu.cn>
 Link: https://github.com/openwrt/openwrt/pull/14950
 Signed-off-by: Robert Marko <robimarko@gmail.com>
 (cherry picked from commit eb9e0f2cffd81d2028dec420fa9adcdf0da05c5c)
+
+[Neanderfunk: 0084 without the ipq5018.dtsi hunk; the ipq50xx backport
+already carries it as 0082-v6.13-arm64-dts-qcom-ipq5018-change-labels-to-lower-case.patch.]
 ---
  .../arm64/boot/dts/qcom/ipq6018-cp-cpu.dtsi   |   8 +-
  .../arm64/boot/dts/qcom/ipq8074-ac-cpu.dtsi   |  48 +--
- .../arm64/boot/dts/qcom/ipq8074-hk-cpu.dtsi   |  88 ++--
- ...qcom-ipq-change-labels-to-lower-case.patch | 381 ++++++++++++++++++
+ .../arm64/boot/dts/qcom/ipq8074-hk-cpu.dtsi   |  88 ++---
+ ...qcom-ipq-change-labels-to-lower-case.patch | 348 ++++++++++++++++++
  ...0122-arm64-dts-ipq8074-add-CPU-clock.patch |  16 +-
  ...q8074-add-cooling-cells-to-CPU-nodes.patch |  14 +-
  ...4-dts-qcom-ipq8074-add-CPU-OPP-table.patch |   8 +-
- 7 files changed, 472 insertions(+), 91 deletions(-)
+ 7 files changed, 439 insertions(+), 91 deletions(-)
  create mode 100644 target/linux/qualcommax/patches-6.6/0084-v6.13-arm64-dts-qcom-ipq-change-labels-to-lower-case.patch
 
 diff --git a/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6018-cp-cpu.dtsi b/target/linux/qualcommax/files/arch/arm64/boot/dts/qcom/ipq6018-cp-cpu.dtsi
@@ -317,10 +320,10 @@ index b7d746c44e..ec8f5d0aad 100644
  };
 diff --git a/target/linux/qualcommax/patches-6.6/0084-v6.13-arm64-dts-qcom-ipq-change-labels-to-lower-case.patch b/target/linux/qualcommax/patches-6.6/0084-v6.13-arm64-dts-qcom-ipq-change-labels-to-lower-case.patch
 new file mode 100644
-index 0000000000..0ca00ab2d7
+index 0000000000..29869b8034
 --- /dev/null
 +++ b/target/linux/qualcommax/patches-6.6/0084-v6.13-arm64-dts-qcom-ipq-change-labels-to-lower-case.patch
-@@ -0,0 +1,381 @@
+@@ -0,0 +1,348 @@
 +From 6f8c1ed25809181c187a59b1caaa1521756924bf Mon Sep 17 00:00:00 2001
 +From: Krzysztof Kozlowski <krzysztof.kozlowski@linaro.org>
 +Date: Tue, 22 Oct 2024 17:47:26 +0200
@@ -332,49 +335,16 @@ index 0000000000..0ca00ab2d7
 +Signed-off-by: Krzysztof Kozlowski <krzysztof.kozlowski@linaro.org>
 +Link: https://lore.kernel.org/r/20241022-dts-qcom-label-v3-1-0505bc7d2c56@linaro.org
 +Signed-off-by: Bjorn Andersson <andersson@kernel.org>
++
++[Neanderfunk: ohne den ipq5018.dtsi-Teil, den bringt die ipq50xx-Serie als
++0082-v6.13-arm64-dts-qcom-ipq5018-change-labels-to-lower-case.patch mit]
 +---
-+ arch/arm64/boot/dts/qcom/ipq5018.dtsi | 10 +++---
 + arch/arm64/boot/dts/qcom/ipq5332.dtsi | 18 +++++-----
 + arch/arm64/boot/dts/qcom/ipq6018.dtsi | 26 +++++++-------
 + arch/arm64/boot/dts/qcom/ipq8074.dtsi | 18 +++++-----
 + arch/arm64/boot/dts/qcom/ipq9574.dtsi | 50 +++++++++++++--------------
-+ 5 files changed, 61 insertions(+), 61 deletions(-)
++ 4 files changed, 56 insertions(+), 56 deletions(-)
 +
-+--- a/arch/arm64/boot/dts/qcom/ipq5018.dtsi
-++++ b/arch/arm64/boot/dts/qcom/ipq5018.dtsi
-+@@ -31,27 +31,27 @@
-+ 		#address-cells = <1>;
-+ 		#size-cells = <0>;
-+ 
-+-		CPU0: cpu@0 {
-++		cpu0: cpu@0 {
-+ 			device_type = "cpu";
-+ 			compatible = "arm,cortex-a53";
-+ 			reg = <0x0>;
-+ 			enable-method = "psci";
-+-			next-level-cache = <&L2_0>;
-++			next-level-cache = <&l2_0>;
-+ 			clocks = <&apcs_glb APCS_ALIAS0_CORE_CLK>;
-+ 			operating-points-v2 = <&cpu_opp_table>;
-+ 		};
-+ 
-+-		CPU1: cpu@1 {
-++		cpu1: cpu@1 {
-+ 			device_type = "cpu";
-+ 			compatible = "arm,cortex-a53";
-+ 			reg = <0x1>;
-+ 			enable-method = "psci";
-+-			next-level-cache = <&L2_0>;
-++			next-level-cache = <&l2_0>;
-+ 			clocks = <&apcs_glb APCS_ALIAS0_CORE_CLK>;
-+ 			operating-points-v2 = <&cpu_opp_table>;
-+ 		};
-+ 
-+-		L2_0: l2-cache {
-++		l2_0: l2-cache {
-+ 			compatible = "cache";
-+ 			cache-level = <2>;
-+ 			cache-size = <0x80000>;
 +--- a/arch/arm64/boot/dts/qcom/ipq5332.dtsi
 ++++ b/arch/arm64/boot/dts/qcom/ipq5332.dtsi
 +@@ -30,47 +30,47 @@

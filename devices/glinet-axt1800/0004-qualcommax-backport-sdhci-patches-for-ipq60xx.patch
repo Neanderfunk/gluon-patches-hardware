@@ -1,4 +1,4 @@
-From 50ab70d1ad0ab1695f1c45384a586a1251321245 Mon Sep 17 00:00:00 2001
+From 81fdf918882e2c7c2f67491cf2a52dedd6f9d774 Mon Sep 17 00:00:00 2001
 From: Chukun Pan <amadeus@jmu.edu.cn>
 Date: Mon, 4 Mar 2024 23:02:16 +0800
 Subject: [PATCH 4/6] qualcommax: backport sdhci patches for ipq60xx
@@ -150,10 +150,10 @@ index 0000000000..ed4b6d9e6d
 + 			compatible = "qcom,bam-v1.7.0";
 + 			reg = <0x0 0x07884000 0x0 0x2b000>;
 diff --git a/target/linux/qualcommax/patches-6.6/0084-v6.13-arm64-dts-qcom-ipq-change-labels-to-lower-case.patch b/target/linux/qualcommax/patches-6.6/0084-v6.13-arm64-dts-qcom-ipq-change-labels-to-lower-case.patch
-index 0ca00ab2d7..6a1c93b869 100644
+index 29869b8034..a8a2090db1 100644
 --- a/target/linux/qualcommax/patches-6.6/0084-v6.13-arm64-dts-qcom-ipq-change-labels-to-lower-case.patch
 +++ b/target/linux/qualcommax/patches-6.6/0084-v6.13-arm64-dts-qcom-ipq-change-labels-to-lower-case.patch
-@@ -182,7 +182,7 @@ Signed-off-by: Bjorn Andersson <andersson@kernel.org>
+@@ -149,7 +149,7 @@ Signed-off-by: Bjorn Andersson <andersson@kernel.org>
   			compatible = "cache";
   			cache-level = <2>;
   			cache-unified;

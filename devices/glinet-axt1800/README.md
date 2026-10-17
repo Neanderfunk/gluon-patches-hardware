@@ -31,7 +31,7 @@ der GL-AX1800 ist ungetestet.
 | --- | --- |
 | 0001 | `append-gl-metadata` aus filogic.mk nach `include/image-commands.mk` (OpenWrt ddc4f216c6) |
 | 0002 | PWM-Knoten für IPQ6018, `CONFIG_PWM_IPQ` (227222f357); Treiber und Binding kamen schon mit der ipq50xx-Serie |
-| 0003 | DTS-Labels klein, CPU-dtsi von ipq6018 und **ipq8074** aufgefrischt (eb9e0f2cff) |
+| 0003 | DTS-Labels klein, CPU-dtsi von ipq6018 und **ipq8074** aufgefrischt (eb9e0f2cff); Kernelpatch 0084 ohne den ipq5018-Teil, den die ipq50xx-Serie schon als 0082 mitbringt |
 | 0004 | SDHCI für IPQ6018 aus v6.11, sdcc-Takt (af6cf5d8c0) |
 | 0005 | cpufreq für die IPQ60xx-Varianten, mp5496-Regler (0b33bbc0e6) |
 | 0006 | GL-AX1800/AXT1800 (OpenWrt c3f2bb7afc), an 24.10 angepasst |

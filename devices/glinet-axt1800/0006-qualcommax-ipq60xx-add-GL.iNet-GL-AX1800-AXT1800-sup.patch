@@ -1,4 +1,4 @@
-From 84c1cd52a3842a157ae8070fb6fc95a066aadb75 Mon Sep 17 00:00:00 2001
+From edeb90d3753cf71d6335bc327b8c5a3e691b7fc4 Mon Sep 17 00:00:00 2001
 From: Chukun Pan <amadeus@jmu.edu.cn>
 Date: Wed, 20 Mar 2024 23:05:07 +0800
 Subject: [PATCH 6/6] qualcommax: ipq60xx: add GL.iNet GL-AX1800/AXT1800
