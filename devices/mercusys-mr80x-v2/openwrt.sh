@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Mercusys MR80X v2 / MR3000X v2.0 (qualcommax-ipq50xx): OpenWrt-Backport
-# (Phase pre-update). Geparkt, steht nicht in apply.sh.
+# (Phase pre-update).
 #
 # Legt die OpenWrt-Commits dieses Verzeichnisses (0*.patch, git-format-patch)
 # unter patches/openwrt im Gluon-Baum ab. "make update" spielt sie dort nach

@@ -1,15 +1,16 @@
-# Mercusys MR80X v2 / MR3000X v2.0 (qualcommax-ipq50xx), geparkt
+# Mercusys MR80X v2 / MR3000X v2.0 (qualcommax-ipq50xx)
 
 Backport des OpenWrt-Subtargets `qualcommax/ipq50xx` (Qualcomm IPQ5018) mit
 dem Mercusys MR80X v2 auf Gluon v2025.1.x (OpenWrt 24.10, Kernel 6.6).
 Gluon 2025.1 kennt ipq50xx nicht; in OpenWrt kam der MR80X v2 am 02.10.2026
 nach main (938f67a519, PR #24919), dort mit Kernel 6.18.
 
-**Geparkt:** Die Serie steht nicht in `apply.sh` und wirkt auf keinen Bau.
-Sie ändert neben dem neuen Target auch Pakete, die andere Targets mitbauen
-(mac80211/ath11k, qca-ssdk, qca-nss-dp, rtl8365mb, ath11k-firmware). Vor dem
-Aktivieren muss ein Bau der übrigen qualcommax-Targets (ipq807x) zeigen, dass
-dort nichts kippt.
+**Aktiv seit 17.10.2026 (Testversion):** `openwrt.sh` steht in `apply.sh` unter
+pre-update, `targets.sh` unter post-update. Gebaut wird das Gerät erst, wenn
+der Neanderfunk-Bau das Target `qualcommax-ipq50xx` in seiner Target-Liste
+führt. Die Serie ändert neben dem neuen Target auch Pakete, die andere
+Targets mitbauen (mac80211/ath11k, qca-ssdk, qca-nss-dp, rtl8365mb,
+ath11k-firmware); ein ipq807x-Bau mit der Serie zeigt, ob dort etwas kippt.
 
 ## Gerät
 
@@ -77,11 +78,10 @@ schon ohne Last.
 Offen:
 
 - batman meldet an der Mesh-on-LAN-Brücke eine MTU von 1500.
-- Ein Bau der übrigen qualcommax-Targets mit dieser Serie steht aus.
+- Ein Bau der übrigen qualcommax-Targets (ipq807x) mit dieser Serie steht aus.
 
-## Aktivieren
+## Aktivieren und zurücknehmen
 
-1. In `apply.sh` `parked/ipq50xx-mercusys-mr80x-v2/openwrt.sh` unter
-   `PRE_UPDATE` und `parked/ipq50xx-mercusys-mr80x-v2/targets.sh` unter
-   `POST_UPDATE` eintragen (oder das Verzeichnis nach `devices/` ziehen).
-2. Im Neanderfunk-Bau das Target `qualcommax-ipq50xx` aufnehmen.
+Eingehängt über die beiden Zeilen in `apply.sh`. Zurücknehmen: die Zeilen
+entfernen (oder das Verzeichnis wieder nach `parked/` legen) und
+`qualcommax-ipq50xx` aus der Target-Liste des Baus nehmen.

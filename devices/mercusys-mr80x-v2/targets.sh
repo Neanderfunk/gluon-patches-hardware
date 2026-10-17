@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Mercusys MR80X v2 / MR3000X v2.0: Gluon-Target qualcommax-ipq50xx
-# (Phase post-update). Geparkt, steht nicht in apply.sh.
+# (Phase post-update).
 #
 # Prueft zuerst, dass "make update" die OpenWrt-Seite (openwrt.sh, Phase
 # pre-update) wirklich eingespielt hat, und legt dann das Target

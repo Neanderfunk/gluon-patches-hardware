@@ -42,6 +42,7 @@ machen weiter. Scheitert einer, brechen sie mit Fehler ab.
 | `kernel/mt7915-ps-aql/openwrt.sh` | pre-update | mt7915/mt798x: Power-Save-/AQL-Satz aus Gluon main (PR #3673, Merge `2bfae3d6`): legt die sechs Gluon-Patches 0013-0018 als `patches/openwrt/5150-hw-mt7915-ps-aql-*.patch` ab und entfernt Gluons `0012-mt7915-detect-and-purge-stuck-PLE-queues.patch` (dort per Revert ersetzt). Gegen openwrt/mt76#1009 (TX-Stillstand bei Clients im Power-Save) | Original-Patches von David Bauer u. a., unveraendert |
 | `kernel/mt76x02-thermal/openwrt.sh` | pre-update | **Test (10.10.2026):** MT7610E/MT7612E melden ihre Chiptemperatur als Thermal-Zone `mt76x0_phyN`/`mt76x2_phyN` (mt76-Paketpatch 900, als `patches/openwrt/5160-hw-mt76x02-thermal-*.patch`). Wird nach dem Test an C20i/Mi4A behalten oder zurückgerollt | Neanderfunk |
 | `kernel/mpc85xx-simpleimage-loader/openwrt.sh` | pre-update | mpc85xx: simpleImage-Loader an der Adresse linken, die der uImage-Header nennt (`patches/openwrt/5170-hw-mpc85xx-simpleimage-loader-*.patch`). Behebt das sysupgrade des WS-AP3715i (bootet seit 24.10 nicht, openwrt/openwrt#23112) und das initramfs des WS-AP3825i (#25302); verschiebt BR200-WP, HiveAP-330, WS-AP3715i auf 0x3000000, damit ein Gluon-initramfs hineinpasst. Ohne Hardware geprueft, siehe dortige README | openwrt/openwrt#25541 (3 Cherry-Picks, offen) plus Nachbau von #25257 fuer 24.10 (Neanderfunk) |
+| `devices/mercusys-mr80x-v2/openwrt.sh` | pre-update | **Test (17.10.2026):** neues Target `qualcommax-ipq50xx` (IPQ5018) mit Mercusys MR80X v2 / MR3000X v2.0, Backport aus OpenWrt main auf Kernel 6.6 (44 Patches als `patches/openwrt/5700-hw-ipq50xx-*.patch`). Ändert auch mac80211/ath11k, qca-ssdk und qca-nss-dp, die `qualcommax-ipq807x` mitbaut. Am Gerät erprobt, Einzelheiten in `devices/mercusys-mr80x-v2/README.md` | OpenWrt 938f67a519 u. a. (Johan Alvarado, George Moussalem); 0043/0044 Neanderfunk |
 | `devices/<geraet>/targets.sh` | post-update | Gluon-Eintrag der Backports darueber; prueft vorher, dass die OpenWrt-Seite im Baum steht | |
 | `devices/zbit-zb25vq128.sh` | post-update | Kernel-Patch für den Zbit-ZB25VQ128-Flash (Totolink X5000R ab 2022); das Gerät kennt Gluon 2025.1, die Flash-ID der Kernel nicht | Daniel Palmer 2021, nie gemerged; auf 6.6 portiert, Kompilieren und Gerät ungetestet |
 | `devices/add-nanopi-r2c.sh` | post-update | FriendlyElec NanoPi R2C | |
@@ -68,7 +69,6 @@ Nicht angewendet:
 | --- | --- |
 | `parked/squashfs-blocksize-per-device.sh` | squashfs-Blockgröße je Gerät (vorbereitet, nicht aktiv) |
 | `parked/cudy-rtl8221b-irq-parent.sh` | TR3000/M3000: `interrupt-parent = <&pio>` für den 2,5G-PHY (Backport OpenWrt 82b69df); geparkt, siehe Patchkopf |
-| `parked/ipq50xx-mercusys-mr80x-v2/` | Target qualcommax-ipq50xx mit Mercusys MR80X v2 / MR3000X v2.0 (Backport aus OpenWrt main, 44 Patches); am Gerät erprobt, geparkt bis zum Bau der übrigen qualcommax-Targets, siehe README dort |
 
 ## Prüfen am Gerät
 
