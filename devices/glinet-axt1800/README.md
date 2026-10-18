@@ -53,10 +53,19 @@ Nicht übernommen, weil nur für neuere Kernel nötig:
 - ceb6a77792 (SD-Pinctrl unter 6.18), 5805d638ad, f50435627d u. a.
   (Umbauten auf PPE-Netzwerk und DTS-Verzeichnis).
 
-## Offen, am Gerät zu prüfen
+## Am Gerät (18.10.2026, GL-AXT1800)
 
-- Lüfter dreht und regelt (pwm-fan, Trips 50/75/100 °C).
-- WLAN-MACs: Das Caldata-Skript setzt sie aus `get_mac_label`; das DTS hat
-  kein `label-mac-device`. Welche MAC Gluon als primäre nimmt, und ob die
-  WLAN-MACs eindeutig sind.
-- 11s-Mesh auf beiden Bändern, Durchsatz.
+Probebau 26101802bro-probe (lokal, Stand 9d88641), per `sysupgrade -n -F` aus
+OpenWrt 25.12.1 geflasht. Auf dem Gerät lief vorher versehentlich das Image
+des GL-AX1800; das erzwungene sysupgrade ging trotzdem glatt (gleiche
+NAND-Aufteilung bis auf rootfs).
+
+- Board `glinet,gl-axt1800`, Mesh auf mesh0 und mesh1 mit Nachbarn.
+- MACs: primär = wan = Aufkleber `…:84`, lan `…:85`, phy1 (2.4 GHz) `…:86`,
+  phy0 (5 GHz) `…:87`; die Caldata-Rechnung über `get_mac_label` greift.
+- Lüfter: `pwm-fan` gebunden, pwm1 36, rund 800 U/min bei 46 °C, Kühlstufe
+  0 von 3 (Trips 50/75/100 °C).
+- SDHCI-Controller erkannt (`mmc0`), Karte nicht getestet.
+- RAM: 410 MiB gesamt, rund 150 MiB verfügbar 5 Minuten nach dem Start.
+
+Noch offen: Durchsatz, Lüfter unter Last.
