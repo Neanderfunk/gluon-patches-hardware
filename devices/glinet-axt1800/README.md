@@ -65,6 +65,9 @@ NAND-Aufteilung bis auf rootfs).
   phy0 (5 GHz) `…:87`; die Caldata-Rechnung über `get_mac_label` greift.
 - Lüfter: `pwm-fan` gebunden, pwm1 36, rund 800 U/min bei 46 °C, Kühlstufe
   0 von 3 (Trips 50/75/100 °C).
+- Lüfter per `hwmon/pwm1` steuerbar (adorfer hat zugesehen): 255 wird auf
+  192 begrenzt (höchste Kühlstufe), rund 4500 U/min; 0 schaltet ab. Die
+  Thermal-Regelung setzt den Wert nach gut 10 Sekunden auf ihre Stufe zurück.
 - SDHCI-Controller erkannt (`mmc0`), Karte nicht getestet.
 - RAM: 410 MiB gesamt, rund 150 MiB verfügbar 5 Minuten nach dem Start.
 
