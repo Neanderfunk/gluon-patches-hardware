@@ -10,7 +10,7 @@
 # Kandidaten: die 64-MB-Geraete mit zwei Radios (lowmem_dualradio in
 # Neanderfunk/FirmwareConfigs, templates/common/image-customization.lua). Einschalten durch Entfernen des
 # "#". Dahinter: freies Overlay mit 256 -> 64 KiB (lokaler Vergleichsbau
-# 12.09.2026, scratch/2026-09-12-squashfs64/vergleich-lokal-256-vs-64.txt).
+# 12.09.2026).
 #
 # Messung am Archer C25 (12.09.2026, je 1 h ruhig, alle RAM-Entlastungen):
 # 256 KiB 59 Refaults / MemAvailable 2,8 MB, 64 KiB 0 / 3,5 MB. Tendenz, nicht

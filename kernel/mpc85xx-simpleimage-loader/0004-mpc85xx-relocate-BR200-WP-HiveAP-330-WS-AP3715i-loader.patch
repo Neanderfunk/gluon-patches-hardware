@@ -17,8 +17,7 @@ WS-AP3825i auf main. Inhaltlich openwrt/openwrt#25257 (grische), auf die
 TL-WDR4900 v1 bleibt bei 0x1500000.
 
 Nicht auf Hardware getestet. Pruefbar am Image: Ladeadresse im Header
-gleich Linkadresse des Loaders (router-werkstatt
-werkzeug/mpc85xx-ladeadresse.py).
+gleich Linkadresse des Loaders.
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 ---
