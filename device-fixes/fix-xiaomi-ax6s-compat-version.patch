@@ -13,7 +13,7 @@ Dieselbe Zeile wie fuer den E8450 nimmt den Handgriff ab. board.d greift bei
 der Erstinstallation (frische Konfiguration); bestehende Konfigurationen
 fasst es nicht an.
 
-Befund Content-Session 03.10.2026, am OpenWrt-Pin a1ea57bd nachgesehen.
+Befund 03.10.2026, am OpenWrt-Pin a1ea57bd nachgesehen.
 ---
 --- a/target/linux/mediatek/mt7622/base-files/etc/board.d/05_compat-version	2026-10-03 04:52:15.367794497 +0200
 +++ b/target/linux/mediatek/mt7622/base-files/etc/board.d/05_compat-version	2026-10-03 04:52:15.394126757 +0200

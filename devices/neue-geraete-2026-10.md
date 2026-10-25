@@ -65,8 +65,8 @@ POST_UPDATE=( … bisherige …
 
 Die Target-Patches sind gegen den Stand **nach** `add-cudy-3000.sh` und
 `targets/additionaltargets.sh` (inkl. `targets-mediatek-filogic.patch` und
-`targets-qualcommax-ipq807x.patch` aus 8dbae18) erzeugt. Ändert die
-Nachbarsession diese Dateien weiter, neu erzeugen.
+`targets-qualcommax-ipq807x.patch` aus 8dbae18) erzeugt. Ändern sich diese Dateien,
+neu erzeugen.
 
 ## Prüfungen
 

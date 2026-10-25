@@ -8,10 +8,8 @@
 # (Bootpartition FAT). OpenWrt bis 19.07, also Gluon bis 2021.1, legt beim
 # sysupgrade die gesicherte Konfiguration mit "mount -t ext4" auf Partition 1
 # ab; auf FAT scheitert das, und der Knoten startet ohne Konfiguration im
-# Setup-Mode (Gluon #2967, Labortest router-werkstatt
-# docs/gluon-migrationspfade.md "x86: Labortest"). Alte x86-Knoten bekommen
-# deshalb ueber ihr eigenes Manifest dieses Image; Ablauf in router-werkstatt
-# docs/howto-x86-altknoten-2025.md.
+# Setup-Mode (Gluon #2967, im Labor nachgestellt). Alte x86-Knoten bekommen
+# deshalb ueber ihr eigenes Manifest dieses Image.
 #
 # OpenWrt baut das Image ohnehin (CONFIG_GRUB_IMAGES ist Vorgabe), Gluon
 # kopiert es nur nicht heraus. x86-geode braucht den Patch nicht: dort ist

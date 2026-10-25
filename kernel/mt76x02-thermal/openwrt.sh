@@ -5,12 +5,12 @@
 # Testpin auf v2025.1.x (adorfer 10.10.2026: "ihr koennt gern hinterher
 # zurueckrollen"); faellt der Test schlecht aus, wieder herausnehmen. Ob der
 # Patch bleibt, entscheidet der Test an C20i (MT7610E) und Mi4A Gigabit
-# (MT7612E, Gegenprobe); Auftrag adorfer 10.10.2026 ueber die Packages-Session.
+# (MT7612E, Gegenprobe); Auftrag adorfer 10.10.2026.
 #
 # Die Datei 0001 ist ein OpenWrt-Commit, der den Paket-Patch
 # package/kernel/mt76/patches/900-wifi-mt76-mt76x02-expose-temperature-as-thermal-zone.patch
-# anlegt. "make update" spielt ihn per git am ein. Der Paket-Patch greift laut
-# Packages-Session mit --fuzz=0 auf mt76 2025.11.06~eb567bc7 nach 100/200/350
+# anlegt. "make update" spielt ihn per git am ein. Der Paket-Patch greift
+# mit --fuzz=0 auf mt76 2025.11.06~eb567bc7 nach 100/200/350
 # und beruehrt keine Datei aus kernel/mt7915-ps-aql (800-810).
 #
 # Aufruf aus dem Gluon-Verzeichnis, so wie apply.sh es tut.
