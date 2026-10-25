@@ -1,7 +1,7 @@
 mac80211/ath9k: Empfangspuffer 128 statt 256 (Sackgasse, 4/32).
 
 OpenWrt 19.07 senkt ATH_RXBUF schon von 512 auf 256 (511-ath9k_reduce_rxbuf).
-Am WR841N v9 (24111111sta, Packages-Session 04.10.2026) belegt der Treiber
+Am WR841N v9 (24111111sta, 04.10.2026) belegt der Treiber
 damit trotzdem ~1,55 MB schon beim Laden (MemAvailable 10852 KB ohne ath9k,
 9296 KB mit ath9k bei WLAN aus), zusammen mit hostapd ~1,8 MB von 27 MB.
 Die Empfangspuffer sind der Loewenanteil. 128 statt 256 spart grob

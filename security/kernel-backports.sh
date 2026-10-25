@@ -1,8 +1,8 @@
 #!/bin/bash
 #
 # Sicherheits-Backports fuer Kernel 4.14.275 und mac80211 (backports 4.19.237)
-# der Sackgasse (Gluon 2021.1, OpenWrt 19.07, ar71xx). Recherche:
-# router-werkstatt docs/recherche-19.07/ (04.10.2026).
+# der Sackgasse (Gluon 2021.1, OpenWrt 19.07, ar71xx). Recherche
+# 04.10.2026.
 #
 #   mac80211/subsys 900-903  Mesh-CSA: NULL-Deref ueber Funk (CVE-2026-23279,
 #                            CVE-2026-23396), CSA nur von der eigenen Mesh,
@@ -16,7 +16,7 @@
 # im OpenWrt-Baum und werden dorthin kopiert; OpenWrt spielt sie beim Bau ein.
 # Jede Datei traegt Original-Commit und Backport-Vermerk im Kopf. Geprueft am
 # 04.10.2026: patch --fuzz=0 in OpenWrt-Reihenfolge, Kompilierprobe mit gcc
-# 7.5.0/musl (Nachweise in scratch/fixes-2021/kernel/).
+# 7.5.0/musl.
 #
 # Wird aus dem Gluon-Verzeichnis heraus aufgerufen, so wie apply.sh es tut.
 

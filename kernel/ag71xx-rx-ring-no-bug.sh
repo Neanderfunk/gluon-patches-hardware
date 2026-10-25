@@ -4,8 +4,8 @@
 #
 # Archer C25 v1 (64 MB, ath9k + ath10k) unter RAM-Druck: das Nachfuellen des
 # RX-Rings scheitert, und sobald alle Deskriptoren verbraucht sind, loest
-# ag71xx_assert(0) in ag71xx_rx_packets() eine Kernel-Panik aus (Befund der
-# Paketfeed-Session, scratch/2026-09-12-c25-befund.md). Der Treiber hat fuer
+# ag71xx_assert(0) in ag71xx_rx_packets() eine Kernel-Panik aus (eigener Befund
+# am Archer C25). Der Treiber hat fuer
 # genau diesen Fall einen Rueckweg (oom_timer), die Assertion kommt ihm nur
 # zuvor. Einzelheiten im Patchkopf.
 #
