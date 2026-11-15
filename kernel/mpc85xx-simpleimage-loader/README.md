@@ -43,5 +43,12 @@ der Vergleich der Ladeadresse im uImage-/FIT-Header mit der Linkadresse des Load
 muss fuer alle mpc85xx-Images "OK" melden (Header = Linkadresse), bei
 den AP3825i-Images im Feld also 0x3000000 statt bisher 0x1500000.
 
+**Upstream (Stand 15.11.2026):** #25541 ist seit 27.10.2026 in
+openwrt-24.10 (762d1e86e7, f2286b18ba, f91f3bae88). Gluon v2025.1.x hat
+den Stand seit 2a1fc0c193 (OpenWrt 34fa4b1af5); unser Pin a1ea57bd liegt
+davor. Wer den Gluon-Pin ueber diesen Punkt hebt: 0001-0003 streichen
+(`git am` scheitert sonst), 0004 auf den neuen Stand pruefen, danach den
+Header-Vergleich wie oben.
+
 **Rueckweg:** `openwrt.sh` aus `apply.sh` nehmen; die Images sind dann wieder
 wie vor dem Patch (AP3825i-sysupgrade bei 0x1500000, bootet).
