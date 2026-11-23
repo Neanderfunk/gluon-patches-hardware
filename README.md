@@ -52,6 +52,7 @@ machen weiter. Scheitert einer, brechen sie mit Fehler ab.
 | `devices/add-lantiq-xrx200-devices.sh` | post-update | AVM FRITZ!Box 3390 | |
 | `devices/add-cudy-3000.sh` | post-update | Cudy AP3000 v1 und TR3000 256MB v1 (die übrigen kennt Gluon 2025.1) | |
 | `devices/remove-dlink-m30-recovery.sh` | post-update | D-Link M30: kein recovery-Image, es installiert nicht | Gluon #3816 |
+| `devices/remove-dlink-m60-recovery.sh` | post-update | D-Link M60: kein recovery-Image, Gluon-initramfs taugt nicht als fertige Firmware | wie #3816 |
 | `devices/dlink-aquila-odm-mac.sh` | post-update | D-Link AQUILA PRO AI M30 A1 und M60 A1: Basis-MAC aus der Werksdaten-Partition `Odm` per eigenem nvmem-Layout-Parser (Kernel-Patch `451-nvmem-add-layout-for-D-Link-Odm.patch`) statt fester Zelle `0x81`. Geräte aus Mehrfach-Packs (`M60-2`, `M30/CP`) haben den MAC-Eintrag weiter hinten (`0x83`, `0x87`) | eigener Parser, Muster wie OpenWrts Adtran-Layout; OpenWrt PR 23902 (geschlossen), 24967 (offen) |
 | `device-fixes/fix-xiaomi-ax6s-bootflags.sh` | post-update | Xiaomi Redmi AX6S: Boot-Flags bestätigen, kein Rückfall auf Stock | |
 | `device-fixes/fix-xiaomi-ax6s-compat-version.sh` | post-update | Xiaomi Redmi AX6S: `board.d/05_compat-version` setzt bei der Erstinstallation `compat_version` 2.0 (wie OpenWrt beim E8450 UBI); sonst steht ein per factory.bin umgestellter Knoten auf 1.0 und bekommt kein Update mehr | |
