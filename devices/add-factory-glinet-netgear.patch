@@ -1,0 +1,28 @@
+--- a/targets/ath79-nand
++++ b/targets/ath79-nand
+@@ -35,12 +35,12 @@
+ 
+ device('gl.inet-gl-e750', 'glinet_gl-e750', {
+ 	broken = true, -- the display is not showing status and there are no LEDs
+-	factory = false,
++	factory_ext = '.img',
+ 	packages = ATH10K_PACKAGES_QCA9887,
+ })
+ 
+ device('gl.inet-gl-xe300', 'glinet_gl-xe300', {
+-	factory = false,
++	factory_ext = '.img',
+ })
+ 
+ 
+--- a/targets/ramips-mt7621
++++ b/targets/ramips-mt7621
+@@ -105,7 +105,7 @@
+ })
+ 
+ device('netgear-wndr3700-v5', 'netgear_wndr3700-v5', {
+-	factory = false,
++	factory_ext = '.img',
+ 	broken = true, -- untested
+ })
+ 

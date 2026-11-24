@@ -52,6 +52,7 @@ POST_UPDATE=(
   devices/remove-dlink-m30-recovery.sh        # D-Link M30: kein recovery-Image (Gluon #3816)
   devices/remove-dlink-m60-recovery.sh        # D-Link M60: kein recovery-Image (initramfs, nach M30)
   devices/dlink-aquila-odm-mac.sh             # D-Link M30/M60: MAC aus Odm per Layout-Parser
+  devices/add-factory-glinet-netgear.sh       # GL-E750, GL-XE300, WNDR3700 v5: factory.img
   device-fixes/fix-xiaomi-ax6s-bootflags.sh   # Xiaomi Redmi AX6S: Boot-Flags bestaetigen
   device-fixes/fix-xiaomi-ax6s-compat-version.sh # Xiaomi Redmi AX6S: compat_version 2.0 bei Erstinstallation
   targets/additionaltargets.sh                # zusaetzliche Targets und Geraete aus OpenWrt
