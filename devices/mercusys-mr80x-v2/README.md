@@ -100,10 +100,28 @@ Neustart des Knotens, und auch der nur eine Zeit lang. Ohne Wirkung:
 Modulparameter `ath11k crypto_mode=1`. Der REO-Status-Fix (0017) und das
 Abholen im Takt (0025) sind beide drin. Im genannten Forenthread ist
 802.11s auf IPQ5018 ebenfalls ungelöst (2.4 GHz tritt nicht bei, 5 GHz
-braucht nach 30 bis 40 h einen Neustart). Offene Kandidaten aus OpenWrt
-main: ath11k-Patches 113/114 (Peer-Aufräumen), 950/951 (Crash-Recovery
-auf AHB) und der noch nicht übernommene Patch gegen doppelt angelegte
-Peers bei mehreren Interfaces auf einem Radio.
+braucht nach 30 bis 40 h einen Neustart). 950/951 (Crash-Recovery auf
+AHB) sind schon in 0038 enthalten.
+
+**Backport aus OpenWrt main, ohne Wirkung (Test 25.11.2026):** Ein
+lokaler Bau mit allen ath11k-Fixes aus main, die auf 6.12 passen (102 bis
+107, 110 bis 115, 117, 118, 955, 956), dazu zwei auf linux-wireless noch
+offene Patches: "Avoid adding the same peer twice to a pdev" (Remi
+Pommarel) und "don't send A-MSDUs on mesh interfaces" (Florian Maurer,
+22.11.2026). Gebaut und auf einem MR80X v2 geflasht, die Firmware nimmt
+die A-MSDU-Begrenzung ohne Fehler an. 15 min nach dem Start erreicht der
+Knoten per Unicast 1 von 8 Peers auf 2.4 GHz und 4 von 8 auf 5 GHz, also
+nicht besser als ohne die Patches. Nicht übernommen, weil der Code in 6.12
+fehlt oder anders aussieht: 101, 108, 109, 116, 954. Der Patch liegt
+nicht in diesem Repo; die A-MSDU-Begrenzung bleibt trotzdem sinnvoll für
+Mesh mit MT7996, sobald sie upstream ist.
+
+Bei solchen Backports auf 6.12 auf die Platzierung achten: patch setzte
+den Hunk von 107 ("fix leak in ath11k_service_ready_ext_event") mit Fuzz
+in `ath11k_service_ready_ext2_event()`, deren `err:`-Marke in 6.12 gleich
+aussieht. Der Bau brach dann ab; ohne Bauabbruch wäre der Fix still an
+der falschen Stelle gelandet. Jeden Hunk ohne Fuzz einspielen und den
+Funktionsnamen im Hunk-Kopf mit dem Ergebnis vergleichen.
 
 ## Inhalt
 
