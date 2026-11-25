@@ -75,6 +75,7 @@ POST_UPDATE=(
   kernel/mtk-eth-small-frag.sh                # TEST: mtk_eth_soc kleine Fragmente auch ab netsys v2 (MediaTek 241d864)
   kernel/mt7530-phy-disable-eee.sh            # MT7530-PHY: EEE aus
   kernel/ag71xx-rx-ring-no-bug.sh             # ag71xx: kein BUG() bei leerem RX-Ring
+  kernel/mac80211-mesh-ba-teardown.sh         # mac80211: BA-Sitzungen beim Verlassen von ESTAB abbauen (Mesh-Unicast nach Nachbar-Neustart)
   targets/ath10k-thermal.sh                   # TEST: ATH10K_THERMAL (Test, Rueckrollen nach dem Test moeglich)
 )
 

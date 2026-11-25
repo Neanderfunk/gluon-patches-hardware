@@ -1,0 +1,112 @@
+From: Florian Maurer <fmaurer@disroot.org>
+Date: Fri, 20 Nov 2026 14:25:14 +0000
+Subject: [PATCH] wifi: mac80211: mesh: tear down BA sessions when the peer link goes down
+
+When a mesh peer link leaves ESTAB, only the plink state changes. The
+station entry and its block ack sessions stay until the station expires
+after mesh_plink_timeout (default 30 minutes). If the peer sets up the
+link again from scratch in the meantime, e.g. because it rejoined the
+mesh or restarted, its sequence numbers start from 0 again, but the old
+RX reorder session is still there, with its window head ahead of them.
+Frames on that TID are dropped as old until the peer's sequence numbers
+pass the old head, up to 2047 frames.
+
+A restarted peer does not need to close the link first: its OPENs carry
+a new link ID and are ignored (OPN_IGNR) until it gives up after
+dot11MeshMaxRetries and sends a CLOSE, which is accepted in ESTAB.
+
+A new ADDBA from the peer does not help: the first session of a new
+station uses dialog token 1 again, so it is taken as an update of the
+old session ("updated AddBA Req") and the reorder state is kept, and a
+peer that rejoins without HT sends no ADDBA at all. The TX sessions for
+the peer go stale the same way.
+
+Seen with mac80211_hwsim and on hardware with ath11k and mt7915 on the
+node that kept the station (the keeper below). After a neighbour
+rebooted, an ath11k node dropped its frames on one TID for 4.5 to over
+20 minutes. Deleting the station on the keeper restores traffic at
+once.
+
+Tear down the BA sessions of the peer whenever its plink leaves ESTAB,
+as is done when the station is destroyed:
+ - in mesh_process_plink_frame() when the kernel MPM FSM left ESTAB,
+   without DELBA since the peer has closed the link, and outside of the
+   RCU section since this can sleep (the wiphy mutex keeps sta alive),
+ - in mesh_plink_block() and in sta_apply_mesh_params() when user space
+   moves the plink out of ESTAB, with DELBA since the peer may still be
+   in ESTAB. These keep the sessions consistent with the plink state;
+   no failure was observed on these paths.
+
+ath11k keeps the old window head in its REO queue on RX_STOP and needs
+"wifi: ath11k: invalidate the REO queue SSN when RX aggregation stops"
+as well.
+
+Fixes: ae2772b313b9 ("mac80211: allow frame aggregation for mesh")
+Signed-off-by: Florian Maurer <fmaurer@disroot.org>
+Acked-by: Simon Schippers <simon.schippers@tu-dortmund.de>
+Tested-by: Simon Schippers <simon.schippers@tu-dortmund.de>
+Link: https://patchwork.kernel.org/project/linux-wireless/patch/20261120142515.463101-1-fmaurer@disroot.org/
+
+[Neanderfunk: upstream noch offen (wireless-next), unveraendert; passt
+ ohne Fuzz auf backports 6.12.96.]
+---
+diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
+index 6e466f8e1653..1ef96a668d46 100644
+--- a/net/mac80211/cfg.c
++++ b/net/mac80211/cfg.c
+@@ -2469,8 +2469,11 @@ static void sta_apply_mesh_params(struct ieee80211_local *local,
+ 		case NL80211_PLINK_OPN_RCVD:
+ 		case NL80211_PLINK_CNF_RCVD:
+ 		case NL80211_PLINK_HOLDING:
+-			if (sta->mesh->plink_state == NL80211_PLINK_ESTAB)
++			if (sta->mesh->plink_state == NL80211_PLINK_ESTAB) {
+ 				changed = mesh_plink_dec_estab_count(sdata);
++				ieee80211_sta_tear_down_BA_sessions(sta,
++								    AGG_STOP_LOCAL_REQUEST);
++			}
+ 			sta->mesh->plink_state = params->plink_state;
+ 
+ 			ieee80211_mps_sta_status_update(sta);
+diff --git a/net/mac80211/mesh_plink.c b/net/mac80211/mesh_plink.c
+index 6ce3ae3fb39b..80993f31f239 100644
+--- a/net/mac80211/mesh_plink.c
++++ b/net/mac80211/mesh_plink.c
+@@ -825,6 +825,7 @@ u64 mesh_plink_block(struct sta_info *sta)
+ 	sta->mesh->plink_state = NL80211_PLINK_BLOCKED;
+ 	spin_unlock_bh(&sta->mesh->plink_lock);
+ 	mesh_path_flush_by_nexthop(sta);
++	ieee80211_sta_tear_down_BA_sessions(sta, AGG_STOP_LOCAL_REQUEST);
+ 
+ 	return changed;
+ }
+@@ -1131,6 +1132,7 @@ mesh_process_plink_frame(struct ieee80211_sub_if_data *sdata,
+ 	u64 changed = 0;
+ 	u8 ie_len = elems->peering_len;
+ 	u16 plid, llid = 0;
++	bool was_estab, teardown_ba = false;
+ 
+ 	if (!elems->peering) {
+ 		mpl_dbg(sdata,
+@@ -1211,11 +1213,22 @@ mesh_process_plink_frame(struct ieee80211_sub_if_data *sdata,
+ 		sta->mesh->aid = get_unaligned_le16(PLINK_CNF_AID(mgmt));
+ 	}
+ 
++	was_estab = sta->mesh->plink_state == NL80211_PLINK_ESTAB;
+ 	changed |= mesh_plink_fsm(sdata, sta, event);
++	teardown_ba = was_estab &&
++		      sta->mesh->plink_state != NL80211_PLINK_ESTAB;
+ 
+ unlock_rcu:
+ 	rcu_read_unlock();
+ 
++	/* The peer link is gone and will be set up from scratch, so must
++	 * the BA sessions: the peer has typically lost its side of them,
++	 * e.g. when it restarted. This can sleep, so do it outside the RCU
++	 * section, the wiphy mutex keeps sta alive.
++	 */
++	if (teardown_ba)
++		ieee80211_sta_tear_down_BA_sessions(sta, AGG_STOP_PEER_REQUEST);
++
+ 	if (changed)
+ 		ieee80211_mbss_info_change_notify(sdata, changed);
+ }
