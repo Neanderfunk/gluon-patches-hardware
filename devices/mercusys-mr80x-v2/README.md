@@ -22,6 +22,89 @@ ath11k-firmware); ein ipq807x-Bau mit der Serie zeigt, ob dort etwas kippt.
   Firmware-Upgrade > Lokales Upgrade). Die U-Boot-Web-Recovery nimmt nur
   RSA-signierte Herstellerfirmware.
 
+## WLAN-Scan auf 2.4 GHz bleibt auf dem eigenen Kanal
+
+Gemessen am 24.11.2026 an einem MR80X v2 mit Gluon v2025.1.x (Treiber
+ath11k, Firmware `WLAN.HK.2.7.0.1-01744`): Ein Scan über das 2.4-GHz-Radio
+(IPQ5018, `c000000.wifi`) liefert nur Netze des Kanals, auf dem das Radio
+gerade steht, dazu den Nachbarkanal im Abstand von 10 MHz, den es mithört.
+
+- Gleich bei `iw dev <if> scan`, `iw dev <if> scan freq 2412 2437 flush`
+  (es kamen trotzdem nur Netze des eigenen Kanals zurück), über das
+  Mesh-Interface wie per `ap-force` über das AP-Interface, mit `HE20` wie
+  `HT20`. Laut `iw phy` sind die Kanäle 1 bis 11 freigegeben.
+- Ein Mesh-Knoten derselben Gegend auf Kanal 6, 1 m entfernt, tauchte in
+  keinem Scan auf. Stellt man das Radio selbst auf dessen Kanal (`uci set
+  wireless.radio0.channel=…`, `wifi up radio0`), findet der Scan ihn sofort.
+- Das 5-GHz-Radio (QCN6122, `b00a040.wifi1`, ebenfalls ath11k, dieselbe
+  Firmware) scannt normal über alle Kanäle.
+- Zum Vergleich am selben Tag geprüft, alle mit Netzen außerhalb des eigenen
+  Kanals: mt7915e, mt7603e, mt76 (mt7628), mt798x-wmac (mt7981/mt7986),
+  ath9k.
+
+Woher die Firmware kommt (gemessen am selben Gerät): Der Kernel lädt sie
+beim Start per remoteproc aus dem Root-Dateisystem, nicht der Bootloader und
+nicht aus einem eigenen Flash-Bereich. `q6_fw.*` und `m3_fw.*` unter
+`/lib/firmware/ath11k/IPQ5018/hw1.0/` kommen aus den Paketen
+`ath11k-firmware-ipq5018` und `ath11k-firmware-qcn6122`
+(`2024.10.14~15f05012-r1`, Quelle laut 0033: das alte QUIC-Repo
+`upstream-wifi-fw`, weil QCA für IPQ5018/QCN6122 dort noch nichts Neueres
+veröffentlicht hatte). Beide Radios laufen mit demselben Build. Gerätespezifisch
+sind die Board-Daten `board-2.bin` (Paket `ipq-wifi-mercusys_mr80x-v2`,
+`2025.10.22~ec6831a4-r1`) und die Kalibrierdaten in der Flash-Partition
+`0:art`; die liest der Kernel nur.
+
+Zum Protokollieren je Gerät (`dmesg | grep fw_build_id`, `md5sum`):
+
+| Teil | Stand 24.11.2026 |
+| --- | --- |
+| `fw_build_id` (beide Radios) | `WLAN.HK.2.7.0.1-01744-QCAHKSWPL_SILICONZ-1`, `fw_version 0x270206d0`, Build 2022-08-04 13:28 |
+| `q6_fw.mdt` md5 | `67a213db488fa4217351d2e4a109a63f` |
+| `m3_fw.mdt` md5 | `4ad7145414e047f71aa75c6171c5d8a3` |
+| `board-2.bin` md5 | `4cd72d2fcac767f8d71e01a44c268ddf` |
+
+Ein anderer Firmware-Build ließe sich also über das Image tauschen und
+vergleichen, wenn es einen gibt.
+
+ath11k scannt per Firmware (hw_scan); welche Kanäle sie wirklich anhört,
+sieht Linux nicht. Der Treiber gibt den Scan mit niedriger Priorität an die
+Firmware. **Gegenprobe 25.11.2026:** Mit abgeschalteten AP-Interfaces auf
+dem 2.4-GHz-Radio (Mesh bleibt an) findet derselbe Scan Netze auf Kanal 1,
+5, 6 und 11; mit nur einem Station-Interface ebenso. Es liegt also am
+aktiven AP. Dasselbe Verhalten ist auf einem Xiaomi AX3600 (ipq807x,
+Firmware `WLAN.HK.2.9.0.1-02146`) nachgestellt, also nicht nur an diesem
+Firmware-Stand. Zum Vergleich ohne den Effekt: mt7915e, mt7603e, mt76
+(mt7628), mt798x-wmac (mt7981/mt7986), ath9k.
+
+Andere Firmware-Stände: `WLAN.HK.2.6.0.1.r7-00028` (quic/upstream-wifi-fw,
+testing) startet mit diesem Treiber nicht ("failed to receive wmi unified
+ready event", QCN6122 "failed to wait qmi memory request"). Neuere Stände
+(2.9, 2.12) gibt es nur aus Herstellerfirmware; laut OpenWrt-Forum
+(Thread "IPQ5018: GLiNET B3000 info") stürzen sie nach Minuten bis Stunden
+ab, 2.7.0.1-01744 gilt dort als der stabilste.
+
+Folge für Werkzeuge, die per Scan Meshes auf anderen Kanälen suchen: Auf
+2.4 GHz den AP kurz abschalten. neanderfunk-domainhelper `island` macht das
+ab 0.14 (Neanderfunk/packages).
+
+## 802.11s: Unicast fällt aus, Peers bleiben verbunden
+
+Gemessen 25.11.2026 an zwei MR80X v2 im selben Mesh: Die Peers bleiben
+`ESTAB`, batman-OGMs und Multicast kommen an, aber ein Unicast-Ping an die
+Link-Local-Adresse eines Peers auf dem Mesh-Interface bleibt bei einem Teil
+der Peers ohne Antwort, wechselnd und auf beiden Bändern (15 min nach dem
+Start: 2.4 GHz 5 von 8 Peers, 5 GHz 2 von 8). Ein Knoten mit mt76 im selben
+Mesh erreicht alle Peers, nur die beiden MR80X nicht. linkcheck
+(`mesh_unicast`) erkennt das; `wifi` neu starten hilft nicht, nur ein
+Neustart des Knotens, und auch der nur eine Zeit lang. Ohne Wirkung:
+Modulparameter `ath11k crypto_mode=1`. Der REO-Status-Fix (0017) und das
+Abholen im Takt (0025) sind beide drin. Im genannten Forenthread ist
+802.11s auf IPQ5018 ebenfalls ungelöst (2.4 GHz tritt nicht bei, 5 GHz
+braucht nach 30 bis 40 h einen Neustart). Offene Kandidaten aus OpenWrt
+main: ath11k-Patches 113/114 (Peer-Aufräumen), 950/951 (Crash-Recovery
+auf AHB) und der noch nicht übernommene Patch gegen doppelt angelegte
+Peers bei mehreren Interfaces auf einem Radio.
+
 ## Inhalt
 
 `openwrt.sh` (pre-update) legt `0001` bis `0044` als
