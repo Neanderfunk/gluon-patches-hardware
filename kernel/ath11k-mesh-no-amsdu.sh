@@ -11,7 +11,7 @@
 # einen MSDU; das RX-Aggregationsfenster bleibt unveraendert.
 #
 # Anlass (21_dias, 26.11.2026): Auf dem MR80X v2 ede0 (IPQ5018) meldet
-# linkcheck (mesh_peer_unicast) die 2.4-GHz-Strecke zum Xiaomi 4A Gigabit
+# linkcheck (mesh_peer_unicast) die 5-GHz-Strecke (mesh1) zum Xiaomi 4A Gigabit
 # (mt76) seit dem 25.11. durchgehend als stumm, mit und ohne
 # ath11k-reo-ssn.sh; Einzelpings gehen durch, waehrend des linkcheck-Laufs
 # fehlen 3 s. Florian hat auf diesen Patch verwiesen. Ob er das behebt, ist
