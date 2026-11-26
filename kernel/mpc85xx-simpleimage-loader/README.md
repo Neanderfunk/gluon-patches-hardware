@@ -1,6 +1,7 @@
 # mpc85xx: simpleImage-Loader an der richtigen Adresse
 
-Backport fuer Gluon v2025.1.x (OpenWrt 24.10, Kernel 6.6).
+Backport fuer Gluon v2025.1.x (OpenWrt 24.10, Kernel 6.6). Seit dem Gluon-Pin
+ac283dfb (OpenWrt 34fa4b1af5) ist nur noch 0004 unser eigener Teil.
 
 **Fehler:** Vor dem Kernel liegt auf mpc85xx ein kleiner Loader
 (simpleImage). Der Kernel wird ab Adresse 0 entpackt, der Loader muss
@@ -15,9 +16,9 @@ WS-AP3825i liegt bei 0x1600000 (#25302).
 
 | Datei | Herkunft | Inhalt |
 | --- | --- | --- |
-| 0001 | #25541, cherry-pick 4afaacdd7f (David Bauer) | WS-AP3825i: Loader und Header auf 0x3000000 |
-| 0002 | #25541, cherry-pick 15fb19cdb3 | 110-br200-wp: Kontext aufgefrischt |
-| 0003 | #25541, cherry-pick 9836f7ca13 (Edward Chow, #23121) | neuer Kernelpatch 099: `link_address='0x1500000'` fuer alle `simpleboot-*`; die Einzeleintraege in 100/101/106/110 entfallen |
+| 0001 (entfallen, upstream 762d1e86e7) | #25541, cherry-pick 4afaacdd7f (David Bauer) | WS-AP3825i: Loader und Header auf 0x3000000 |
+| 0002 (entfallen, upstream f2286b18ba) | #25541, cherry-pick 15fb19cdb3 | 110-br200-wp: Kontext aufgefrischt |
+| 0003 (entfallen, upstream f91f3bae88) | #25541, cherry-pick 9836f7ca13 (Edward Chow, #23121) | neuer Kernelpatch 099: `link_address='0x1500000'` fuer alle `simpleboot-*`; die Einzeleintraege in 100/101/106/110 entfallen |
 | 0004 | Neanderfunk, Nachbau von #25257 (grische) fuer 24.10 | BR200-WP, HiveAP-330, WS-AP3715i: Loader und Header auf 0x3000000 |
 
 Nach 0001-0003 waere der WS-AP3715i repariert, sein initramfs haette aber
@@ -43,12 +44,11 @@ der Vergleich der Ladeadresse im uImage-/FIT-Header mit der Linkadresse des Load
 muss fuer alle mpc85xx-Images "OK" melden (Header = Linkadresse), bei
 den AP3825i-Images im Feld also 0x3000000 statt bisher 0x1500000.
 
-**Upstream (Stand 15.11.2026):** #25541 ist seit 27.10.2026 in
-openwrt-24.10 (762d1e86e7, f2286b18ba, f91f3bae88). Gluon v2025.1.x hat
-den Stand seit 43828ac636 vom 01.11.2026 (OpenWrt 34fa4b1af5); unser Pin a1ea57bd liegt
-davor. Wer den Gluon-Pin ueber diesen Punkt hebt: 0001-0003 streichen
-(`git am` scheitert sonst), 0004 auf den neuen Stand pruefen, danach den
-Header-Vergleich wie oben.
+**Upstream:** #25541 ist seit 27.10.2026 in openwrt-24.10 (762d1e86e7,
+f2286b18ba, f91f3bae88), in Gluon v2025.1.x seit 43828ac636 vom 01.11.2026
+(OpenWrt 34fa4b1af5). Mit dem Gluon-Pin ac283dfb (26.11.2026) sind 0001-0003
+hier gestrichen; 0004 geht per `git am` sauber auf 34fa4b1af5. Der
+Header-Vergleich wie oben steht fuer den ersten Bau auf diesem Stand aus.
 
 **Rueckweg:** `openwrt.sh` aus `apply.sh` nehmen; die Images sind dann wieder
 wie vor dem Patch (AP3825i-sysupgrade bei 0x1500000, bootet).

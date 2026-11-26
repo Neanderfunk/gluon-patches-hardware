@@ -8,12 +8,12 @@
 # sagt 0x1500000 (openwrt/openwrt#23112, #25302). Das initramfs des
 # WS-AP3825i liegt aus demselben Grund daneben (0x1600000 statt 0x1500000).
 #
-# 0001-0003 sind openwrt/openwrt#25541 (Backport von #23121 und 4afaacdd7f
-# nach openwrt-24.10, dort seit 27.10.2026 als 762d1e86e7..f91f3bae88
-# uebernommen, nach a1ea57bd), unveraendert. Beim naechsten Gluon-Bump
-# auf einen OpenWrt-Stand mit f91f3bae88 entfallen 0001-0003 (README.md). 0004 ist unser Nachbau von
-# #25257 fuer 24.10: Loader von BR200-WP, HiveAP-330 und WS-AP3715i nach
-# 0x3000000, damit auch ein Gluon-initramfs (RAMpe) dort hineinpasst.
+# openwrt/openwrt#25541 (Backport von #23121 und 4afaacdd7f) ist seit
+# 27.10.2026 in openwrt-24.10 (762d1e86e7..f91f3bae88) und mit Gluon
+# v2025.1.x ac283dfb im Baum; unsere Kopien 0001-0003 sind deshalb entfallen.
+# Uebrig ist 0004, unser Nachbau von #25257 fuer 24.10: Loader von BR200-WP,
+# HiveAP-330 und WS-AP3715i nach 0x3000000, damit auch ein Gluon-initramfs
+# (RAMpe) dort hineinpasst.
 # Siehe README.md in diesem Verzeichnis.
 #
 # "make update" spielt die Dateien per git am ein. Aufruf aus dem

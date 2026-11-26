@@ -39,7 +39,7 @@ PRE_UPDATE=(
   devices/glinet-axt1800/openwrt.sh           # GL.iNet GL-AX1800/AXT1800, Subtarget ipq60xx (aus main, nach 5700-ipq50xx)
   kernel/mt7915-ps-aql/openwrt.sh             # mt7915/mt798x Power-Save/AQL aus Gluon main (#3673), ersetzt Gluons 0012
   kernel/mt76x02-thermal/openwrt.sh           # TEST: MT7610E/MT7612E-Temperatur als Thermal-Zone (Test, Rueckrollen nach dem Test moeglich)
-  kernel/mpc85xx-simpleimage-loader/openwrt.sh # mpc85xx: Loader-Adressen (WS-AP3715i-sysupgrade, AP3825i-initramfs), #25541 + Nachbau #25257
+  kernel/mpc85xx-simpleimage-loader/openwrt.sh # mpc85xx: Loader-Adressen BR200-WP/HiveAP-330/WS-AP3715i (Nachbau #25257; #25541 upstream)
 )
 
 # Reihenfolge wie im Neanderfunk-Bau. Die Skripte sind voneinander
