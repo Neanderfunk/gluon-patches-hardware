@@ -103,6 +103,47 @@ Abholen im Takt (0025) sind beide drin. Im genannten Forenthread ist
 braucht nach 30 bis 40 h einen Neustart). 950/951 (Crash-Recovery auf
 AHB) sind schon in 0038 enthalten.
 
+**Behoben mit zwei Patches von Florian Maurer (Test 26.11.2026, Bau
+26112601bro):** `kernel/mac80211-mesh-ba-teardown.sh` baut die
+Block-Ack-Sitzungen eines Mesh-Peers ab, sobald sein Link `ESTAB` verlässt,
+`kernel/ath11k-reo-ssn.sh` verwirft dazu den alten Fensteranfang in der
+Hardware-Reorder-Queue von ath11k. Beide sind upstream noch offen. Mit
+beiden: 5 Neustarts, danach waren jeweils sofort 959 von 960 Mesh-Strecken
+per Unicast erreichbar, anschließend 624 von 624 über 2 h ohne Neustart,
+kein Firmware-Absturz, keine REO-Fehler.
+
+Offen bleibt eine einzelne 5-GHz-Strecke von einem MR80X v2 zu einem
+Nachbarn mit mt76x2: Sie wird wiederholt stumm, linkcheck löscht die
+Station etwa alle 30 min. Ein zweiter MR80X v2 am selben Nachbarn zeigt das
+nicht. Weder der REO-Patch noch der A-MSDU-Patch (unten) ändern daran
+etwas (gemessen 26.11.2026).
+
+## 802.11s: A-MSDU zu Empfängern mit Hardware-Zerlegung
+
+Die ath11k-Firmware zählt beim Senden auf Mesh-Interfaces die Mesh Control
+in die Länge der A-MSDU-Teilrahmen mit. Empfänger, die A-MSDUs in Hardware
+zerlegen, verwerfen dann alle Teilrahmen außer dem ersten. Florian Maurer
+hat das an einem MT7996 gefunden; `kernel/ath11k-mesh-no-amsdu.sh` (Patch
+981, upstream noch offen) begrenzt A-MSDUs auf Mesh-vdevs per WMI auf einen
+MSDU. Im Bau seit 26112610bro.
+
+Gemessen 26.11.2026 an zwei MR80X v2: TCP direkt über die
+Link-Local-Adresse auf dem Mesh-Interface, je 10 s, Mittel aus 3 Läufen,
+5 GHz, vor und nach dem Patch:
+
+| Strecke | vorher | nachher |
+| --- | ---: | ---: |
+| MR80X v2 → MT7986 (MR90X), erster MR80X | 70 Mbit/s | 159 Mbit/s |
+| MR80X v2 → MT7986 (MR90X), zweiter MR80X | 35 Mbit/s | 176 Mbit/s |
+| MR80X v2 → MR80X v2 | 97 / 188 Mbit/s | 182 / 163 Mbit/s |
+| MR80X v2 → MT7981, MT76x2 | 167 bis 183 Mbit/s | 150 bis 180 Mbit/s |
+| Sender ohne ath11k (Kontrolle) | 105 bis 379 Mbit/s | innerhalb ±10 % |
+
+Auf 2.4 GHz verdoppelt sich der Durchsatz zum MT7986 ebenfalls. Zu den
+übrigen Empfängern kostet der Patch bis zu 10 %. Die
+Firmware nimmt die Begrenzung ohne Fehler an (keine Meldung "failed to
+disable A-MSDU").
+
 **Backport aus OpenWrt main, ohne Wirkung (Test 25.11.2026):** Ein
 lokaler Bau mit allen ath11k-Fixes aus main, die auf 6.12 passen (102 bis
 107, 110 bis 115, 117, 118, 955, 956), dazu zwei auf linux-wireless noch
@@ -112,9 +153,13 @@ Pommarel) und "don't send A-MSDUs on mesh interfaces" (Florian Maurer,
 die A-MSDU-Begrenzung ohne Fehler an. 15 min nach dem Start erreicht der
 Knoten per Unicast 1 von 8 Peers auf 2.4 GHz und 4 von 8 auf 5 GHz, also
 nicht besser als ohne die Patches. Nicht übernommen, weil der Code in 6.12
-fehlt oder anders aussieht: 101, 108, 109, 116, 954. Der Patch liegt
-nicht in diesem Repo; die A-MSDU-Begrenzung bleibt trotzdem sinnvoll für
-Mesh mit MT7996, sobald sie upstream ist.
+fehlt oder anders aussieht: 101, 108, 109, 116, 954. Gemessen wurde nur der
+Unicast-Ausfall, kein Patch einzeln. Die Fixes aus main liegen nicht in
+diesem Repo. Der A-MSDU-Patch liegt inzwischen als `kernel/981-*` im Repo
+(siehe oben). "Avoid adding the same peer twice to a pdev" ist nicht
+übernommen: Das Problem, das er behebt, zeigt sich am MR80X v2 nicht. In
+den Kernel-Meldungen zweier MR80X v2 vom 25. und 26.11.2026 (250
+ath11k-Zeilen) steht keine einzige zu Peers.
 
 Bei solchen Backports auf 6.12 auf die Platzierung achten: patch setzte
 den Hunk von 107 ("fix leak in ath11k_service_ready_ext_event") mit Fuzz
