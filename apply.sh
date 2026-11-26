@@ -77,6 +77,7 @@ POST_UPDATE=(
   kernel/ag71xx-rx-ring-no-bug.sh             # ag71xx: kein BUG() bei leerem RX-Ring
   kernel/mac80211-mesh-ba-teardown.sh         # mac80211: BA-Sitzungen beim Verlassen von ESTAB abbauen (Mesh-Unicast nach Nachbar-Neustart)
   kernel/ath11k-reo-ssn.sh                    # ath11k: SSN der REO-Queue beim Stoppen der RX-Aggregation verwerfen (Gegenstueck zum mac80211-Patch)
+  kernel/ath11k-mesh-no-amsdu.sh              # ath11k: auf Mesh-Interfaces keine A-MSDUs senden (Empfaenger mit Hardware-Zerlegung verlieren sonst Teilrahmen)
   targets/ath10k-thermal.sh                   # TEST: ATH10K_THERMAL (Test, Rueckrollen nach dem Test moeglich)
 )
 
