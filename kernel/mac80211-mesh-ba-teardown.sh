@@ -19,7 +19,8 @@
 # Der Patch wirkt auf der Seite, die den Eintrag haelt, also auf allen
 # Knoten, nicht nur auf dem neu gestarteten: deshalb fuer alle Targets.
 # ath11k braucht fuer die haltende Seite zusaetzlich "wifi: ath11k:
-# invalidate the REO queue SSN when RX aggregation stops" (noch nicht hier).
+# invalidate the REO queue SSN when RX aggregation stops", siehe
+# ath11k-reo-ssn.sh.
 #
 # Legt den Patch nur ab: das mac80211-Paket wendet patches/subsys/ beim Bau
 # selbst an. Geprueft 25.11.2026: greift ohne Fuzz auf backports 6.12.96

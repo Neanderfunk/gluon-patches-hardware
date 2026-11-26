@@ -76,6 +76,7 @@ POST_UPDATE=(
   kernel/mt7530-phy-disable-eee.sh            # MT7530-PHY: EEE aus
   kernel/ag71xx-rx-ring-no-bug.sh             # ag71xx: kein BUG() bei leerem RX-Ring
   kernel/mac80211-mesh-ba-teardown.sh         # mac80211: BA-Sitzungen beim Verlassen von ESTAB abbauen (Mesh-Unicast nach Nachbar-Neustart)
+  kernel/ath11k-reo-ssn.sh                    # ath11k: SSN der REO-Queue beim Stoppen der RX-Aggregation verwerfen (Gegenstueck zum mac80211-Patch)
   targets/ath10k-thermal.sh                   # TEST: ATH10K_THERMAL (Test, Rueckrollen nach dem Test moeglich)
 )
 

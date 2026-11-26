@@ -1,0 +1,67 @@
+From: Florian Maurer <fmaurer@disroot.org>
+Date: Wed, 25 Nov 2026 09:03:20 +0000
+Subject: [PATCH ath-next] wifi: ath11k: invalidate the REO queue SSN when RX aggregation stops
+
+Link: https://lore.kernel.org/r/20261125090320.3890628-1-fmaurer@disroot.org
+
+Since commit fe201947f8bd ("ath11k: update bawindow size in delba
+process"), stopping RX aggregation no longer deletes the REO queue of
+the TID, so that frames sent without a new ADDBA are not dropped as
+invalid. The queue is shrunk to a window of 1 but keeps its window head
+and its SSN-valid bit. If the peer then restarts its sequence numbers
+without a new ADDBA, REO drops its frames as old until they pass that
+head again, for up to 2047 frames.
+
+This happens in an 802.11s mesh when a peer restarts or rejoins without
+HT: mac80211 stops the RX sessions ("wifi: mac80211: mesh: tear down BA
+sessions when the peer link goes down"), and the peer starts again from
+sequence number 0. In AP/STA mode a restarted peer reassociates and gets
+a new queue.
+
+Clear the SSN-valid bit when stopping, so that the queue is in the same
+state as a newly set up one (ath11k_hal_reo_qdesc_setup()).
+ath11k_dp_peer_rx_pn_replay_config() already clears it on active queues
+when a pairwise key is installed.
+
+Tested-on: IPQ8074 hw2.0 AHB WLAN.HK.2.9.0.1-02146-QCAHKSWPL_SILICONZ-1
+
+Fixes: fe201947f8bd ("ath11k: update bawindow size in delba process")
+Signed-off-by: Florian Maurer <fmaurer@disroot.org>
+---
+Tested on a Xiaomi AX3600 (OpenWrt, 6.18 backports) as the node that
+keeps the station in an open 802.11s mesh, with the mac80211 patch [1]:
+ - peer rejoins without HT: replies in the first 50 s 0/50 without this
+   patch, 48-49/50 with it (4/4 runs each); HT20 rejoins unchanged
+ - an ath10k neighbour reboots: its frames were dropped for 4.5 min to
+   over 20 min without both patches (3/3), and got through right after
+   its boot with them (2/2)
+No firmware crash or REO command failure. Not tested: encrypted mesh
+(the key install already clears the bit), AP/STA, other ath11k chips.
+ath12k_dp_rx_ampdu_stop() has the same pattern; I have no ath12k
+hardware to test it.
+
+[1] https://lore.kernel.org/r/20261120142515.463101-1-fmaurer@disroot.org/
+
+ drivers/net/wireless/ath/ath11k/dp_rx.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/wireless/ath/ath11k/dp_rx.c b/drivers/net/wireless/ath/ath11k/dp_rx.c
+index 6d95f7b343a5..f3108aa992bc 100644
+--- a/drivers/net/wireless/ath/ath11k/dp_rx.c
++++ b/drivers/net/wireless/ath/ath11k/dp_rx.c
+@@ -955,6 +955,9 @@ static int ath11k_peer_rx_tid_reo_update(struct ath11k *ar,
+ 	if (update_ssn) {
+ 		cmd.upd0 |= HAL_REO_CMD_UPD0_SSN;
+ 		cmd.upd2 = FIELD_PREP(HAL_REO_CMD_UPD2_SSN, ssn);
++	} else {
++		/* drop the old window head, as for a newly set up queue */
++		cmd.upd0 |= HAL_REO_CMD_UPD0_SVLD;
+ 	}
+ 
+ 	ret = ath11k_dp_tx_send_reo_cmd(ar->ab, rx_tid,
+
+base-commit: 18d0bedbb5f0538396cb7f763ed9cd1dd69c5b23
+-- 
+2.47.3
+
+
