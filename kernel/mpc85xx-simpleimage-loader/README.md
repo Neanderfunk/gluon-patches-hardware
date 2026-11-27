@@ -47,8 +47,10 @@ den AP3825i-Images im Feld also 0x3000000 statt bisher 0x1500000.
 **Upstream:** #25541 ist seit 27.10.2026 in openwrt-24.10 (762d1e86e7,
 f2286b18ba, f91f3bae88), in Gluon v2025.1.x seit 43828ac636 vom 01.11.2026
 (OpenWrt 34fa4b1af5). Mit dem Gluon-Pin ac283dfb (26.11.2026) sind 0001-0003
-hier gestrichen; 0004 geht per `git am` sauber auf 34fa4b1af5. Der
-Header-Vergleich wie oben steht fuer den ersten Bau auf diesem Stand aus.
+hier gestrichen; 0004 geht per `git am` sauber auf 34fa4b1af5. Header-
+Vergleich am ersten Bau auf diesem Stand (26112621sta, 27.11.2026): alle OK,
+HiveAP-330, WS-AP3715i und WS-AP3825i bei 0x3000000, WS-AP3710i und
+TL-WDR4900 v1 (sysupgrade und factory) bei 0x1500000 mit 4,1 MiB Luft.
 
 **Rueckweg:** `openwrt.sh` aus `apply.sh` nehmen; die Images sind dann wieder
 wie vor dem Patch (AP3825i-sysupgrade bei 0x1500000, bootet).
